@@ -4,6 +4,8 @@
 # ==============================================================================
 
 from flask import Flask, render_template, request, jsonify, redirect, url_for, session
+import os
+from flask import Flask, render_template, request, jsonify, redirect, url_for, session
 import gspread
 from google.oauth2.service_account import Credentials
 from datetime import datetime
@@ -14,7 +16,8 @@ app.secret_key = "AmpleVisionAcademy_Secret_Key_2026#!"
 
 # Google Sheets Connection
 SCOPES = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
-creds = Credentials.from_service_account_file("credentials.json", scopes=SCOPES)
+cred_path = '/etc/secrets/credentials.json' if os.path.exists('/etc/secrets/credentials.json') else 'credentials.json'
+creds = Credentials.from_service_account_file(cred_path, scopes=SCOPES)
 client = gspread.authorize(creds)
 sheet = client.open("Tuition_Master_Database")
 
