@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <link rel="manifest" href="/static/manifest.json">
+<meta name="theme-color" content="#4f46e5">
+<script>
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/static/sw.js');
+  }
+</script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard - AMPLE VISION ACADEMY</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-100 min-h-screen p-4 md:p-6">
+    <div class="max-w-6xl mx-auto space-y-6">
+        
+        <!-- Header -->
+        <div class="flex flex-wrap justify-between items-center bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
+            <div class="flex items-center space-x-4">
+                <img src="/static/images/Logo.jpeg" onerror="this.onerror=null; this.src='https://cdn-icons-png.flaticon.com/512/3429/3429149.png';" class="w-12 h-12 object-contain">
+                <div>
+                    <h1 class="text-2xl font-extrabold text-slate-800">AMPLE VISION ACADEMY</h1>
+                    <p class="text-xs text-indigo-600 font-semibold">Admin Panel | Logged in as {{ user.user_name }}</p>
+                </div>
+            </div>
+            <a href="/logout" class="mt-2 sm:mt-0 text-xs font-bold text-rose-600 bg-rose-50 px-4 py-2 rounded-xl hover:bg-rose-100 transition">Logout</a>
+        </div>
+
+        <!-- Metrics Cards -->
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div class="bg-white p-4 rounded-2xl shadow-sm border-l-4 border-indigo-500">
+                <p class="text-xs font-bold text-gray-400 uppercase">Active Students</p>
+                <h3 id="statStudents" class="text-2xl md:text-3xl font-extrabold text-slate-800 mt-1">--</h3>
+            </div>
+            <div class="bg-white p-4 rounded-2xl shadow-sm border-l-4 border-emerald-500">
+                <p class="text-xs font-bold text-gray-400 uppercase">Total Collection</p>
+                <h3 id="statFees" class="text-2xl md:text-3xl font-extrabold text-emerald-600 mt-1">₹ --</h3>
+            </div>
+            <div class="bg-white p-4 rounded-2xl shadow-sm border-l-4 border-blue-500">
+                <p class="text-xs font-bold text-gray-400 uppercase">Today Present</p>
+                <h3 id="statPresent" class="text-2xl md:text-3xl font-extrabold text-blue-600 mt-1">--</h3>
+            </div>
+            <div class="bg-white p-4 rounded-2xl shadow-sm border-l-4 border-rose-500">
+                <p class="text-xs font-bold text-gray-400 uppercase">Today Absent</p>
+                <h3 id="statAbsent" class="text-2xl md:text-3xl font-extrabold text-rose-600 mt-1">--</h3>
+            </div>
+        </div>
+
+        <!-- Admin Module Action Grid -->
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <a href="/attendance" class="bg-indigo-600 hover:bg-indigo-700 text-white p-5 rounded-2xl shadow-md font-bold text-center block transition">
+                📋 Attendance
+            </a>
+            <a href="/marks" class="bg-blue-600 hover:bg-blue-700 text-white p-5 rounded-2xl shadow-md font-bold text-center block transition">
+                📝 Marks Entry
+            </a>
+            <a href="/students" class="bg-emerald-600 hover:bg-emerald-700 text-white p-5 rounded-2xl shadow-md font-bold text-center block transition">
+                👤 Add Student
+            </a>
+            <a href="/fees" class="bg-amber-600 hover:bg-amber-700 text-white p-5 rounded-2xl shadow-md font-bold text-center block transition">
+                💰 Collect Fee
+            </a>
+        </div>
+
+        <!-- Transactions Log Table -->
+        <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
+            <h2 class="text-lg font-bold text-slate-800 mb-4">💳 Recent Fee Transactions</h2>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr class="bg-slate-50 text-slate-500 font-bold text-xs uppercase border-b">
+                            <th class="p-3">Date</th>
+                            <th class="p-3">Student</th>
+                            <th class="p-3">Class</th>
+                            <th class="p-3">Amount</th>
+                            <th class="p-3">Period</th>
+                            <th class="p-3">Mode</th>
+                        </tr>
+                    </thead>
+                    <tbody id="feeTableBody" class="divide-y text-slate-700 font-medium text-sm">
+                        <tr><td colspan="6" class="p-4 text-center text-slate-400">Loading recent logs...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        window.onload = async function() {
+            try {
+                const res = await fetch('/api/dashboard_stats');
+                const data = await res.json();
+
+                if(data.status === 'success') {
+                    document.getElementById('statStudents').innerText = data.active_students;
+                    document.getElementById('statFees').innerText = '₹ ' + data.total_collection.toLocaleString('en-IN');
+                    document.getElementById('statPresent').innerText = data.today_present;
+                    document.getElementById('statAbsent').innerText = data.today_absent;
+
+                    const feeBody = document.getElementById('feeTableBody');
+                    feeBody.innerHTML = '';
+
+                    if(data.recent_fees.length === 0) {
+                        feeBody.innerHTML = '<tr><td colspan="6" class="p-4 text-center text-slate-400">No transactions recorded yet.</td></tr>';
+                    } else {
+                        data.recent_fees.forEach(f => {
+                            feeBody.innerHTML += `
+                                <tr class="hover:bg-slate-50">
+                                    <td class="p-3 font-semibold">${f.Payment_Date || '-'}</td>
+                                    <td class="p-3">${f.Student_Name || '-'}</td>
+                                    <td class="p-3">${f.Class || '-'}</td>
+                                    <td class="p-3 font-bold text-emerald-600">₹ ${f.Amount_Paid || 0}</td>
+                                    <td class="p-3">${f.For_Month || '-'}</td>
+                                    <td class="p-3"><span class="bg-slate-100 text-slate-800 text-xs px-2.5 py-1 rounded-md font-bold">${f.Payment_Mode || 'Cash'}</span></td>
+                                </tr>
+                            `;
+                        });
+                    }
+                }
+            } catch(e) {
+                console.error('Error loading dashboard stats:', e);
+            }
+        };
+    </script>
+</body>
+</html>
