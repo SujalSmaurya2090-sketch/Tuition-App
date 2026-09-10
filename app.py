@@ -211,24 +211,28 @@ def save_marks():
 @login_required
 def add_student():
     try:
-        data = request.json
-        full_name = data.get('full_name')
-        class_name = data.get('class_name')
-        parent_contact = data.get('parent_contact')
-        monthly_fee = data.get('monthly_fee')
-        joining_date = data.get('joining_date')
+        data = request.form
+        # Direct worksheet access
+        wks = sheet.worksheet("Students")  # Ensure tab name in Google Sheet is 'Students'
         
-        worksheet = sheet.worksheet("Students_Master")
-        existing = worksheet.get_all_records()
+        # Get total rows to generate next Student ID
+        all_rows = wks.get_all_values()
+        next_id = f"STU{len(all_rows):03d}"  # STU001, STU002 format
         
-        next_id_num = len(existing) + 1
-        student_id = f"S{next_id_num:02d}"
+        new_row = [
+            next_id,
+            data.get('name'),
+            data.get('class'),
+            data.get('contact'),
+            data.get('fee'),
+            "Active",
+            datetime.now().strftime("%Y-%m-%d")
+        ]
         
-        new_row = [student_id, full_name, class_name, parent_contact, monthly_fee, "Active", joining_date]
-        worksheet.append_row(new_row)
-        
-        return jsonify({"status": "success", "message": f"Student {full_name} ({student_id}) registered successfully!"})
+        wks.append_row(new_row)
+        return jsonify({"status": "success", "message": "Student added successfully!"})
     except Exception as e:
+        print(f"Error adding student: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
 
 @app.route('/save_fee', methods=['POST'])
