@@ -207,34 +207,53 @@ def save_marks():
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 
+@app.route('/api/get_classes')
+@login_required
+def get_classes():
+    try:
+        wks = sheet.worksheet("Students")
+        records = wks.get_all_records()
+        # Clean empty values
+        classes = sorted(list(set([str(r['Class']).strip() for r in records if r.get('Class')])))
+        return jsonify({"classes": classes})
+    except Exception as e:
+        return jsonify({"classes": []})
+
+@app.route('/add_student', methods=['POST'])
+@login_required
+
 @app.route('/add_student', methods=['POST'])
 @login_required
 def add_student():
     try:
         data = request.form
-        # Direct worksheet access
-        wks = sheet.worksheet("Students")  # Ensure tab name in Google Sheet is 'Students'
+        wks = sheet.worksheet("Students")
         
-        # Get total rows to generate next Student ID
-        all_rows = wks.get_all_values()
-        next_id = f"STU{len(all_rows):03d}"  # STU001, STU002 format
+        # Blank rows avoid karne ke liye count
+        all_vals = [r for r in wks.get_all_values() if any(r)]
+        next_id = f"S{len(all_vals):03d}"
+        
+        # EXPOSED BUG FIX: Form fields input names matching sheet columns (A to G)
+        name = data.get('name') or data.get('full_name') or ''
+        student_class = data.get('class') or ''
+        contact = data.get('contact') or data.get('parent_contact') or ''
+        fee = data.get('fee') or data.get('monthly_fee') or ''
         
         new_row = [
-            next_id,
-            data.get('name'),
-            data.get('class'),
-            data.get('contact'),
-            data.get('fee'),
-            "Active",
-            datetime.now().strftime("%Y-%m-%d")
+            next_id,            # Col A: Student_ID
+            name,               # Col B: Full_Name
+            student_class,      # Col C: Class
+            contact,            # Col D: Parent_Contact
+            fee,                # Col E: Monthly_Fee
+            "Active",           # Col F: Status
+            datetime.now().strftime("%Y-%m-%d") # Col G: Joining_Date
         ]
         
-        wks.append_row(new_row)
-        return jsonify({"status": "success", "message": "Student added successfully!"})
+        wks.append_row(new_row, value_input_option='USER_ENTERED')
+        return jsonify({"status": "success", "message": "Student Added Successfully!"})
     except Exception as e:
-        print(f"Error adding student: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
-
+        
 @app.route('/save_fee', methods=['POST'])
 @login_required
 def save_fee():
