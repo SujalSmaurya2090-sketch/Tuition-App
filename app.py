@@ -29,12 +29,12 @@ def login_required(f):
         return f(*args, **kwargs)
     return decorated_function
 
-# --- ROUTES ---
+# --- PAGE ROUTES ---
 
 @app.route('/')
 @login_required
 def home():
-    user_info = {"user_name": session.get('username', 'User')}
+    user_info = {"user_name": session.get('username', 'User'), "email": session.get('email', '')}
     if session.get('role') == 'Teacher':
         return render_template('teacher_portal.html', user=user_info)
     return render_template('dashboard.html', user=user_info)
@@ -42,8 +42,8 @@ def home():
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
-        # Accept any form key used for login (email, username, user)
-        email = (request.form.get('username') or request.form.get('email') or request.form.get('user') or '').strip().lower()
+        # Matching login.html field: name="email"
+        email = (request.form.get('email') or request.form.get('username') or '').strip().lower()
         
         try:
             wks = sheet.worksheet("Teacher_Master")
@@ -57,17 +57,19 @@ def login():
             
             if matched_user:
                 session['logged_in'] = True
-                session['username'] = matched_user.get('Full_Name') or matched_user.get('Email')
-                # Strict Role Matching
+                session['email'] = email
+                session['username'] = matched_user.get('Full_Name') or email
                 role_val = str(matched_user.get('Role', '')).strip().capitalize()
                 session['role'] = 'Teacher' if role_val == 'Teacher' else 'Admin'
             else:
                 session['logged_in'] = True
+                session['email'] = email
                 session['username'] = email or "Admin"
                 session['role'] = 'Admin'
                 
         except Exception as e:
             session['logged_in'] = True
+            session['email'] = email
             session['username'] = email or "Admin"
             session['role'] = 'Admin'
 
@@ -80,7 +82,6 @@ def logout():
     session.clear()
     return redirect(url_for('login'))
 
-# FIXED ALL HTML PAGE ROUTINGS
 @app.route('/attendance')
 @app.route('/attendance.html')
 @login_required
@@ -91,7 +92,8 @@ def attendance_page():
 @app.route('/fees.html')
 @login_required
 def fees_page():
-    return render_template('fees.html')
+    user_info = {"user_email": session.get('email', session.get('username', 'Staff'))}
+    return render_template('fees.html', user=user_info)
 
 @app.route('/marks')
 @app.route('/marks.html')
@@ -112,35 +114,47 @@ def teacher_portal_page():
     user_info = {"user_name": session.get('username', 'Teacher')}
     return render_template('teacher_portal.html', user=user_info)
 
-# --- APIS ---
+# --- APIS FOR FRONTEND JS ---
 
+@app.route('/get_classes')
 @app.route('/api/get_classes')
 def get_classes():
     try:
         wks = sheet.worksheet("Students")
         records = wks.get_all_records()
         classes = sorted(list(set([str(r.get('Class', '')).strip() for r in records if r.get('Class')])))
-        
-        # Fallback list agar sheet khali ho
         if not classes:
-            classes = ["Class 1", "Class 2", "Class 3", "Class 4", "Class 5", "Class 6", "Class 7", "Class 8", "Class 9", "Class 10", "Class 11", "Class 12"]
-            
+            classes = [f"Class {i}" for i in range(1, 13)]
         return jsonify({"classes": classes})
     except Exception as e:
-        default_classes = ["Class 1", "Class 2", "Class 3", "Class 4", "Class 5", "Class 6", "Class 7", "Class 8", "Class 9", "Class 10", "Class 11", "Class 12"]
+        default_classes = [f"Class {i}" for i in range(1, 13)]
         return jsonify({"classes": default_classes})
+
+@app.route('/get_students/<class_name>')
+def get_students_by_class(class_name):
+    try:
+        wks = sheet.worksheet("Students")
+        records = wks.get_all_records()
+        filtered_students = []
+        for r in records:
+            if str(r.get('Class', '')).strip().lower() == class_name.strip().lower():
+                filtered_students.append({
+                    "Student_ID": str(r.get('Student_ID', '')),
+                    "Full_Name": str(r.get('Full_Name', ''))
+                })
+        return jsonify({"students": filtered_students})
+    except Exception as e:
+        return jsonify({"students": []})
 
 @app.route('/add_student', methods=['POST'])
 def add_student():
     try:
-        # Flexible Data Reading (JSON or Form Data)
         data = request.get_json(silent=True) or request.form
         wks = sheet.worksheet("Students")
         
         all_vals = [r for r in wks.get_all_values() if any(r)]
         next_id = f"S{len(all_vals):03d}"
         
-        # Catching all possible frontend variable names
         name = data.get('name') or data.get('full_name') or data.get('studentName') or data.get('student_name') or ''
         student_class = data.get('class') or data.get('student_class') or data.get('studentClass') or ''
         contact = data.get('contact') or data.get('parent_contact') or data.get('parentContact') or data.get('phone') or ''
@@ -158,6 +172,33 @@ def add_student():
         
         wks.append_row(new_row, value_input_option='USER_ENTERED')
         return jsonify({"status": "success", "message": "Student Added Successfully!"})
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route('/save_fee', methods=['POST'])
+def save_fee():
+    try:
+        data = request.get_json(silent=True) or request.form
+        wks = sheet.worksheet("Fees_Log")
+        
+        all_vals = [r for r in wks.get_all_values() if any(r)]
+        fee_id = f"F{len(all_vals):03d}"
+        
+        new_row = [
+            fee_id,
+            data.get('student_id', ''),
+            data.get('student_name', ''),
+            data.get('class_name', ''),
+            data.get('amount', ''),
+            data.get('for_month', ''),
+            data.get('payment_mode', ''),
+            data.get('payment_date', datetime.now().strftime("%Y-%m-%d")),
+            data.get('receipt_no', ''),
+            session.get('email', 'Staff')
+        ]
+        
+        wks.append_row(new_row, value_input_option='USER_ENTERED')
+        return jsonify({"status": "success", "message": "Fee Recorded Successfully!"})
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 
