@@ -56,12 +56,13 @@ def login():
                     matched_user = row
                     break
             
-            if matched_user:
-                session['logged_in'] = True
-                session['email'] = email
-                session['username'] = matched_user.get('Full_Name') or email
-                role_val = str(matched_user.get('Role', '')).strip().capitalize()
-                session['role'] = 'Teacher' if role_val == 'Teacher' else 'Admin'
+           if matched_user:
+                 session.permanent = True
+                 session['logged_in'] = True
+                 session['email'] = email
+                 session['username'] = matched_user.get('Full_Name') or email
+                 role_val = str(matched_user.get('Role', '')).strip().capitalize()
+                 session['role'] = 'Teacher' if role_val == 'Teacher' else 'Admin'
             else:
                 session['logged_in'] = True
                 session['email'] = email
