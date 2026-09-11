@@ -2,12 +2,14 @@ from flask import Flask, render_template, request, jsonify, redirect, url_for, s
 import gspread
 from google.oauth2.service_account import Credentials
 import os
+from datetime import datetime, timedelta
 from functools import wraps
 import json
-from datetime import timedelta
 
 app = Flask(__name__)
 app.secret_key = 'tuition_app_secret_key_2026'
+
+# Persistent session: 30 dino tak login rahega
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=30)
 
 SCOPE = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
@@ -43,8 +45,9 @@ def home():
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
-        # Matching login.html field: name="email"
         email = (request.form.get('email') or request.form.get('username') or '').strip().lower()
+        
+        session.permanent = True  # Keep login session alive
         
         try:
             wks = sheet.worksheet("Teacher_Master")
@@ -56,13 +59,12 @@ def login():
                     matched_user = row
                     break
             
-           if matched_user:
-                 session.permanent = True
-                 session['logged_in'] = True
-                 session['email'] = email
-                 session['username'] = matched_user.get('Full_Name') or email
-                 role_val = str(matched_user.get('Role', '')).strip().capitalize()
-                 session['role'] = 'Teacher' if role_val == 'Teacher' else 'Admin'
+            if matched_user:
+                session['logged_in'] = True
+                session['email'] = email
+                session['username'] = matched_user.get('Full_Name') or email
+                role_val = str(matched_user.get('Role', '')).strip().capitalize()
+                session['role'] = 'Teacher' if role_val == 'Teacher' else 'Admin'
             else:
                 session['logged_in'] = True
                 session['email'] = email
@@ -139,14 +141,12 @@ def get_students_by_class(class_name):
         records = wks.get_all_records()
         filtered_students = []
         
-        # Clean target string (e.g. "Class 10th Science" -> "10th science")
         target = str(class_name).replace("Class", "").strip().lower()
         
         for r in records:
             sheet_cls = str(r.get('Class', '')).strip()
             sheet_cls_clean = sheet_cls.replace("Class", "").strip().lower()
             
-            # Match exact string, or partial clean match
             if sheet_cls.lower() == str(class_name).strip().lower() or (target and target in sheet_cls_clean):
                 filtered_students.append({
                     "Student_ID": str(r.get('Student_ID', '')),
@@ -166,7 +166,6 @@ def add_student():
         all_vals = [r for r in wks.get_all_values() if any(r)]
         next_id = f"S{len(all_vals):03d}"
         
-        # Exact payload mapping for students.html JavaScript payload keys
         name = data.get('full_name') or data.get('name') or data.get('studentName') or ''
         student_class = data.get('class_name') or data.get('class') or data.get('student_class') or ''
         contact = data.get('parent_contact') or data.get('contact') or data.get('phone') or ''
@@ -187,6 +186,7 @@ def add_student():
         return jsonify({"status": "success", "message": "Student Added Successfully!"})
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
+
 @app.route('/save_fee', methods=['POST'])
 def save_fee():
     try:
