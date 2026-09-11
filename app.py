@@ -4,14 +4,14 @@ from google.oauth2.service_account import Credentials
 import os
 from datetime import datetime
 from functools import wraps
+import json
 
 app = Flask(__name__)
-app.secret_key = 'your_secret_key_here'  # Secret key for session management
+app.secret_key = 'your_secret_key_here'
 
 # Google Sheets Setup
 SCOPE = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
-# Environment variable se credentials padhega
-import json
+
 creds_json = os.environ.get("GOOGLE_CREDENTIALS")
 if creds_json:
     creds_dict = json.loads(creds_json)
@@ -31,18 +31,24 @@ def login_required(f):
     return decorated_function
 
 @app.route('/')
+@login_required
 def home():
-    if 'logged_in' in session:
-        return render_template('dashboard.html')
-    return redirect(url_for('login'))
+    # FIX FOR RENDER ERROR: Passing user dictionary to dashboard.html
+    user_info = {"user_name": session.get('username', 'Admin')}
+    return render_template('dashboard.html', user=user_info)
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
-        # Temporary basic auth
         session['logged_in'] = True
+        session['username'] = request.form.get('username', 'Admin')
         return redirect(url_for('home'))
     return render_template('login.html')
+
+@app.route('/logout')
+def logout():
+    session.clear()
+    return redirect(url_for('login'))
 
 @app.route('/api/get_classes')
 def get_classes():
@@ -65,7 +71,7 @@ def add_student():
         next_id = f"S{len(all_vals):03d}"
         
         name = data.get('name') or data.get('full_name') or ''
-        student_class = data.get('class') or ''
+        student_class = data.get('class') or data.get('student_class') or ''
         contact = data.get('contact') or data.get('parent_contact') or ''
         fee = data.get('fee') or data.get('monthly_fee') or ''
         
