@@ -2,12 +2,13 @@ from flask import Flask, render_template, request, jsonify, redirect, url_for, s
 import gspread
 from google.oauth2.service_account import Credentials
 import os
-from datetime import datetime
 from functools import wraps
 import json
+from datetime import timedelta
 
 app = Flask(__name__)
 app.secret_key = 'tuition_app_secret_key_2026'
+app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=30)
 
 SCOPE = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
 
