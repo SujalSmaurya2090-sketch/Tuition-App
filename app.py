@@ -136,12 +136,21 @@ def get_students_by_class(class_name):
         wks = sheet.worksheet("Students")
         records = wks.get_all_records()
         filtered_students = []
+        
+        # Clean target string (e.g. "Class 10th Science" -> "10th science")
+        target = str(class_name).replace("Class", "").strip().lower()
+        
         for r in records:
-            if str(r.get('Class', '')).strip().lower() == class_name.strip().lower():
+            sheet_cls = str(r.get('Class', '')).strip()
+            sheet_cls_clean = sheet_cls.replace("Class", "").strip().lower()
+            
+            # Match exact string, or partial clean match
+            if sheet_cls.lower() == str(class_name).strip().lower() or (target and target in sheet_cls_clean):
                 filtered_students.append({
                     "Student_ID": str(r.get('Student_ID', '')),
                     "Full_Name": str(r.get('Full_Name', ''))
                 })
+                
         return jsonify({"students": filtered_students})
     except Exception as e:
         return jsonify({"students": []})
@@ -155,10 +164,12 @@ def add_student():
         all_vals = [r for r in wks.get_all_values() if any(r)]
         next_id = f"S{len(all_vals):03d}"
         
-        name = data.get('name') or data.get('full_name') or data.get('studentName') or data.get('student_name') or ''
-        student_class = data.get('class') or data.get('student_class') or data.get('studentClass') or ''
-        contact = data.get('contact') or data.get('parent_contact') or data.get('parentContact') or data.get('phone') or ''
-        fee = data.get('fee') or data.get('monthly_fee') or data.get('monthlyFee') or ''
+        # Exact payload mapping for students.html JavaScript payload keys
+        name = data.get('full_name') or data.get('name') or data.get('studentName') or ''
+        student_class = data.get('class_name') or data.get('class') or data.get('student_class') or ''
+        contact = data.get('parent_contact') or data.get('contact') or data.get('phone') or ''
+        fee = data.get('monthly_fee') or data.get('fee') or ''
+        joining_date = data.get('joining_date') or datetime.now().strftime("%Y-%m-%d")
         
         new_row = [
             next_id,
@@ -167,14 +178,13 @@ def add_student():
             contact,
             fee,
             "Active",
-            datetime.now().strftime("%Y-%m-%d")
+            joining_date
         ]
         
         wks.append_row(new_row, value_input_option='USER_ENTERED')
         return jsonify({"status": "success", "message": "Student Added Successfully!"})
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
-
 @app.route('/save_fee', methods=['POST'])
 def save_fee():
     try:
