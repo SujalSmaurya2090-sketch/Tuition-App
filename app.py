@@ -9,7 +9,6 @@ import json
 app = Flask(__name__)
 app.secret_key = 'tuition_app_secret_key_2026'
 
-# Keep session alive for 30 days
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=30)
 
 SCOPE = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
@@ -58,14 +57,14 @@ def login():
                     matched_user = row
                     break
             
-            # SECURITY FIX: Only allow emails present in Teacher_Master sheet
+            # Security restriction: Only registered emails allowed
             if matched_user:
                 session.permanent = True
                 session['logged_in'] = True
                 session['email'] = email
                 session['username'] = matched_user.get('Full_Name') or email
-                role_val = str(matched_user.get('Role', '')).strip().capitalize()
-                session['role'] = 'Teacher' if role_val == 'Teacher' else 'Admin'
+                role_val = str(matched_user.get('Role', '')).strip().lower()
+                session['role'] = 'Teacher' if role_val == 'teacher' else 'Admin'
                 return redirect(url_for('home'))
             else:
                 error_msg = "Access Denied: Email not registered in Teacher_Master database!"
@@ -141,7 +140,7 @@ def get_students_by_class(class_name):
             sheet_cls = str(r.get('Class', '')).strip()
             sheet_cls_clean = sheet_cls.replace("Class", "").strip().lower()
             
-            if sheet_cls.lower() == str(class_name).strip().lower() or (target and target in sheet_cls_clean):
+            if sheet_cls.lower() == str(class_name).strip().lower() or (target and target == sheet_cls_clean):
                 filtered_students.append({
                     "Student_ID": str(r.get('Student_ID', '')),
                     "Full_Name": str(r.get('Full_Name', ''))
@@ -190,17 +189,22 @@ def save_fee():
         all_vals = [r for r in wks.get_all_values() if any(r)]
         fee_id = f"F{len(all_vals):03d}"
         
+        now_ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        pay_date = data.get('payment_date') or datetime.now().strftime("%Y-%m-%d")
+        
+        # Structure matching Fees_Log Sheet Columns:
+        # Fee_ID | Payment_Date | Student_ID | Student_Name | Class | Amount_Paid | For_Month | Payment_Mode | Collected_By | Timestamp
         new_row = [
             fee_id,
+            pay_date,
             data.get('student_id', ''),
             data.get('student_name', ''),
             data.get('class_name', ''),
             data.get('amount', ''),
             data.get('for_month', ''),
             data.get('payment_mode', ''),
-            data.get('payment_date', datetime.now().strftime("%Y-%m-%d")),
-            data.get('receipt_no', ''),
-            session.get('email', 'Staff')
+            session.get('email', 'Staff'),
+            now_ts
         ]
         
         wks.append_row(new_row, value_input_option='USER_ENTERED')
@@ -211,23 +215,44 @@ def save_fee():
 @app.route('/save_attendance', methods=['POST'])
 def save_attendance():
     try:
-        data = request.get_json(silent=True) or request.form
+        data = request.get_json(silent=True) or request.form or {}
         wks = sheet.worksheet("Attendance_Log")
         
-        records = data.get('attendance_data') or data.get('records') or []
-        class_name = data.get('class_name') or data.get('className') or ''
+        # Handle both list & dict payloads
+        records = data.get('attendance_data') or data.get('records') or data.get('students') or []
+        if isinstance(data, list):
+            records = data
+            
+        class_name = data.get('class_name') or data.get('className') or data.get('class') or ''
         att_date = data.get('date') or datetime.now().strftime("%Y-%m-%d")
         marked_by = session.get('email', 'Teacher')
+        now_ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         
+        all_vals = [r for r in wks.get_all_values() if any(r)]
+        counter = len(all_vals)
+        
+        # Structure matching Attendance_Log Sheet Columns:
+        # Log_ID | Date | Class | Student_ID | Student_Name | Status | Logged_By | Timestamp | Is_Locked
         rows_to_append = []
         for item in records:
+            counter += 1
+            log_id = f"ATT-{att_date.replace('-', '')}-{counter:03d}"
+            
+            s_id = item.get('student_id') or item.get('Student_ID') or item.get('id') or ''
+            s_name = item.get('student_name') or item.get('Student_Name') or item.get('name') or ''
+            status = item.get('status') or item.get('Status') or 'Present'
+            item_cls = item.get('class_name') or item.get('class') or class_name
+            
             rows_to_append.append([
+                log_id,
                 att_date,
-                class_name,
-                item.get('student_id', ''),
-                item.get('student_name', ''),
-                item.get('status', 'Present'),
-                marked_by
+                item_cls,
+                s_id,
+                s_name,
+                status,
+                marked_by,
+                now_ts,
+                "Unlocked"
             ])
             
         if rows_to_append:
@@ -240,30 +265,59 @@ def save_attendance():
 @app.route('/save_marks', methods=['POST'])
 def save_marks():
     try:
-        data = request.get_json(silent=True) or request.form
+        data = request.get_json(silent=True) or request.form or {}
         wks = sheet.worksheet("Marks_Log")
         
         class_name = data.get('class_name', '')
         subject = data.get('subject', '')
         test_title = data.get('test_title', '')
         test_date = data.get('test_date', datetime.now().strftime("%Y-%m-%d"))
-        total_marks = data.get('total_marks', '')
-        teacher_email = session.get('email', data.get('teacher_email', ''))
-        marks_list = data.get('marks_data', [])
         
+        try:
+            total_marks = float(data.get('total_marks', 0))
+        except:
+            total_marks = 0.0
+            
+        teacher_email = session.get('email', data.get('teacher_email', ''))
+        marks_list = data.get('marks_data') or data.get('students') or []
+        now_ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        
+        all_vals = [r for r in wks.get_all_values() if any(r)]
+        counter = len(all_vals)
+        
+        # Structure matching Marks_Log Sheet Columns:
+        # Mark_ID | Date | Class | Subject | Test_Title | Student_ID | Student_Name | Total_Marks | Obtained_Marks | Percentage | Remarks | Teacher_Email | Timestamp | Is_Locked
         rows_to_append = []
         for m in marks_list:
+            counter += 1
+            mark_id = f"MRK-{test_date.replace('-', '')}-{counter:03d}"
+            
+            s_id = m.get('student_id') or m.get('Student_ID') or ''
+            s_name = m.get('student_name') or m.get('Student_Name') or ''
+            
+            try:
+                obtained = float(m.get('obtained_marks') or m.get('marks') or 0)
+            except:
+                obtained = 0.0
+                
+            percentage = round((obtained / total_marks) * 100, 2) if total_marks > 0 else 0.0
+            remarks = m.get('remarks') or ''
+            
             rows_to_append.append([
+                mark_id,
                 test_date,
                 class_name,
                 subject,
                 test_title,
-                m.get('student_id', ''),
-                m.get('student_name', ''),
-                m.get('obtained_marks', 0),
+                s_id,
+                s_name,
                 total_marks,
-                m.get('remarks', ''),
-                teacher_email
+                obtained,
+                f"{percentage}%",
+                remarks,
+                teacher_email,
+                now_ts,
+                "Unlocked"
             ])
             
         if rows_to_append:
