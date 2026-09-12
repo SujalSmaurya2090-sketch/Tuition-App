@@ -9,7 +9,7 @@ import json
 app = Flask(__name__)
 app.secret_key = 'tuition_app_secret_key_2026'
 
-# Persistent session: 30 dino tak login rahega
+# Keep session alive for 30 days
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=30)
 
 SCOPE = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
@@ -44,10 +44,9 @@ def home():
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
+    error_msg = None
     if request.method == 'POST':
         email = (request.form.get('email') or request.form.get('username') or '').strip().lower()
-        
-        session.permanent = True  # Keep login session alive
         
         try:
             wks = sheet.worksheet("Teacher_Master")
@@ -59,27 +58,22 @@ def login():
                     matched_user = row
                     break
             
+            # SECURITY FIX: Only allow emails present in Teacher_Master sheet
             if matched_user:
+                session.permanent = True
                 session['logged_in'] = True
                 session['email'] = email
                 session['username'] = matched_user.get('Full_Name') or email
                 role_val = str(matched_user.get('Role', '')).strip().capitalize()
                 session['role'] = 'Teacher' if role_val == 'Teacher' else 'Admin'
+                return redirect(url_for('home'))
             else:
-                session['logged_in'] = True
-                session['email'] = email
-                session['username'] = email or "Admin"
-                session['role'] = 'Admin'
+                error_msg = "Access Denied: Email not registered in Teacher_Master database!"
                 
         except Exception as e:
-            session['logged_in'] = True
-            session['email'] = email
-            session['username'] = email or "Admin"
-            session['role'] = 'Admin'
+            error_msg = f"Database Error: {str(e)}"
 
-        return redirect(url_for('home'))
-        
-    return render_template('login.html')
+    return render_template('login.html', error=error_msg)
 
 @app.route('/logout')
 def logout():
@@ -211,6 +205,71 @@ def save_fee():
         
         wks.append_row(new_row, value_input_option='USER_ENTERED')
         return jsonify({"status": "success", "message": "Fee Recorded Successfully!"})
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route('/save_attendance', methods=['POST'])
+def save_attendance():
+    try:
+        data = request.get_json(silent=True) or request.form
+        wks = sheet.worksheet("Attendance_Log")
+        
+        records = data.get('attendance_data') or data.get('records') or []
+        class_name = data.get('class_name') or data.get('className') or ''
+        att_date = data.get('date') or datetime.now().strftime("%Y-%m-%d")
+        marked_by = session.get('email', 'Teacher')
+        
+        rows_to_append = []
+        for item in records:
+            rows_to_append.append([
+                att_date,
+                class_name,
+                item.get('student_id', ''),
+                item.get('student_name', ''),
+                item.get('status', 'Present'),
+                marked_by
+            ])
+            
+        if rows_to_append:
+            wks.append_rows(rows_to_append, value_input_option='USER_ENTERED')
+            
+        return jsonify({"status": "success", "message": "Attendance Saved Successfully!"})
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route('/save_marks', methods=['POST'])
+def save_marks():
+    try:
+        data = request.get_json(silent=True) or request.form
+        wks = sheet.worksheet("Marks_Log")
+        
+        class_name = data.get('class_name', '')
+        subject = data.get('subject', '')
+        test_title = data.get('test_title', '')
+        test_date = data.get('test_date', datetime.now().strftime("%Y-%m-%d"))
+        total_marks = data.get('total_marks', '')
+        teacher_email = session.get('email', data.get('teacher_email', ''))
+        marks_list = data.get('marks_data', [])
+        
+        rows_to_append = []
+        for m in marks_list:
+            rows_to_append.append([
+                test_date,
+                class_name,
+                subject,
+                test_title,
+                m.get('student_id', ''),
+                m.get('student_name', ''),
+                m.get('obtained_marks', 0),
+                total_marks,
+                m.get('remarks', ''),
+                teacher_email
+            ])
+            
+        if rows_to_append:
+            wks.append_rows(rows_to_append, value_input_option='USER_ENTERED')
+            
+        return jsonify({"status": "success", "message": "Marks Uploaded Successfully!"})
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 
