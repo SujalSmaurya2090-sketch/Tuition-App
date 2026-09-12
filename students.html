@@ -69,6 +69,55 @@
             alert(result.message);
             if(result.status === 'success') location.reload();
         }
+
+        /* Container ko full screen & responsive banane ke liye */
+body {
+    margin: 0;
+    padding: 10px;
+    box-sizing: border-box;
+    font-family: Arial, sans-serif;
+}
+
+.container, .form-container, .card {
+    width: 100% !important;
+    max-width: 600px; /* Large screen par decent size rahega */
+    margin: 0 auto;
+    padding: 15px;
+    box-sizing: border-box;
+}
+
+/* Form inputs & buttons ko mobile friendly sizing dene ke liye */
+input[type="text"],
+input[type="number"],
+input[type="date"],
+select,
+button {
+    width: 100% !important;
+    height: 45px; /* Touch target easy karne ke liye */
+    font-size: 16px !important; /* Mobile zoom auto-trigger hone se rokta hai */
+    margin-bottom: 12px;
+    box-sizing: border-box;
+    border-radius: 8px;
+}
+
+/* Mobile Screens ke liye Extra Tuning */
+@media screen and (max-width: 768px) {
+    body {
+        padding: 5px;
+    }
+    
+    .form-group {
+        width: 100% !important;
+        display: block;
+    }
+
+    /* Table horizontal scroll Enable karne ke liye */
+    .table-responsive {
+        width: 100%;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+}
     </script>
 </body>
 </html>
