@@ -215,23 +215,42 @@ def save_attendance():
         data = request.get_json(force=True, silent=True) or request.form or {}
         wks = sheet.worksheet("Attendance_Log")
         
-        records = data.get('attendance_data') or data.get('records') or data.get('students') or []
+        # Multiple keys check karna for old & new JS cache compatibility
+        records = (
+            data.get('attendance_data') or 
+            data.get('records') or 
+            data.get('students') or 
+            data.get('data') or 
+            []
+        )
+        
+        # Agar payload direct array ke roop me aaya ho
         if isinstance(data, list):
             records = data
             
-        if not records:
-            return jsonify({"status": "error", "message": "No attendance items received in payload"}), 400
-
         class_name = data.get('class_name') or data.get('className') or data.get('class') or ''
         att_date = data.get('date') or datetime.now().strftime("%Y-%m-%d")
         marked_by = session.get('email', 'Teacher')
         now_ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        
+
+        # Emergency Fallback: Agar JS ne empty array bheja hai, to Form Data / Raw Parse check karo
+        if not records:
+            # Check raw json fallback
+            try:
+                raw_body = json.loads(request.data)
+                records = raw_body.get('attendance_data', raw_body.get('records', []))
+            except:
+                pass
+
+        if not records:
+            return jsonify({
+                "status": "error", 
+                "message": "Payload Empty! Browser Refresh (Ctrl+F5) karke dubara try karein."
+            }), 400
+
         all_vals = [r for r in wks.get_all_values() if any(r)]
         counter = len(all_vals)
         
-        # Structure for Attendance_Log:
-        # Log_ID | Date | Class | Student_ID | Student_Name | Status | Logged_By | Timestamp | Is_Locked
         rows_to_append = []
         for item in records:
             counter += 1
@@ -256,15 +275,14 @@ def save_attendance():
             
         if rows_to_append:
             wks.append_rows(rows_to_append, value_input_option='USER_ENTERED')
-            print(f"SUCCESS: Appended {len(rows_to_append)} rows to Attendance_Log")
-            return jsonify({"status": "success", "message": f"Successfully saved attendance for {len(rows_to_append)} students!"})
+            return jsonify({"status": "success", "message": f"{len(rows_to_append)} Students ki Attendance save ho gayi!"})
         else:
-            return jsonify({"status": "error", "message": "No valid attendance rows prepared."}), 400
+            return jsonify({"status": "error", "message": "No valid rows generated"}), 400
 
     except Exception as e:
-        print("ATTENDANCE EXCEPTION:", str(e))
+        print("ATTENDANCE ERROR:", str(e))
         return jsonify({"status": "error", "message": str(e)}), 500
-
+        
 @app.route('/save_marks', methods=['POST'])
 def save_marks():
     try:
