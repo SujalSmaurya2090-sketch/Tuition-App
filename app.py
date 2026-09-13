@@ -57,7 +57,6 @@ def login():
                     matched_user = row
                     break
             
-            # Security restriction: Only registered emails allowed
             if matched_user:
                 session.permanent = True
                 session['logged_in'] = True
@@ -127,7 +126,7 @@ def get_classes():
         default_classes = [f"Class {i}" for i in range(1, 13)]
         return jsonify({"classes": default_classes})
 
-@app.route('/get_students/<class_name>')
+@app.route('/get_students/<path:class_name>')
 def get_students_by_class(class_name):
     try:
         wks = sheet.worksheet("Students")
@@ -140,7 +139,7 @@ def get_students_by_class(class_name):
             sheet_cls = str(r.get('Class', '')).strip()
             sheet_cls_clean = sheet_cls.replace("Class", "").strip().lower()
             
-            if sheet_cls.lower() == str(class_name).strip().lower() or (target and target == sheet_cls_clean):
+            if sheet_cls.lower() == str(class_name).strip().lower() or (target and target == sheet_cls_clean) or (target in sheet_cls_clean):
                 filtered_students.append({
                     "Student_ID": str(r.get('Student_ID', '')),
                     "Full_Name": str(r.get('Full_Name', ''))
@@ -192,8 +191,6 @@ def save_fee():
         now_ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         pay_date = data.get('payment_date') or datetime.now().strftime("%Y-%m-%d")
         
-        # Structure matching Fees_Log Sheet Columns:
-        # Fee_ID | Payment_Date | Student_ID | Student_Name | Class | Amount_Paid | For_Month | Payment_Mode | Collected_By | Timestamp
         new_row = [
             fee_id,
             pay_date,
@@ -215,14 +212,16 @@ def save_fee():
 @app.route('/save_attendance', methods=['POST'])
 def save_attendance():
     try:
-        data = request.get_json(silent=True) or request.form or {}
+        data = request.get_json(force=True, silent=True) or request.form or {}
         wks = sheet.worksheet("Attendance_Log")
         
-        # Handle both list & dict payloads
         records = data.get('attendance_data') or data.get('records') or data.get('students') or []
         if isinstance(data, list):
             records = data
             
+        if not records:
+            return jsonify({"status": "error", "message": "No attendance items received in payload"}), 400
+
         class_name = data.get('class_name') or data.get('className') or data.get('class') or ''
         att_date = data.get('date') or datetime.now().strftime("%Y-%m-%d")
         marked_by = session.get('email', 'Teacher')
@@ -231,7 +230,7 @@ def save_attendance():
         all_vals = [r for r in wks.get_all_values() if any(r)]
         counter = len(all_vals)
         
-        # Structure matching Attendance_Log Sheet Columns:
+        # Structure for Attendance_Log:
         # Log_ID | Date | Class | Student_ID | Student_Name | Status | Logged_By | Timestamp | Is_Locked
         rows_to_append = []
         for item in records:
@@ -257,15 +256,19 @@ def save_attendance():
             
         if rows_to_append:
             wks.append_rows(rows_to_append, value_input_option='USER_ENTERED')
-            
-        return jsonify({"status": "success", "message": "Attendance Saved Successfully!"})
+            print(f"SUCCESS: Appended {len(rows_to_append)} rows to Attendance_Log")
+            return jsonify({"status": "success", "message": f"Successfully saved attendance for {len(rows_to_append)} students!"})
+        else:
+            return jsonify({"status": "error", "message": "No valid attendance rows prepared."}), 400
+
     except Exception as e:
+        print("ATTENDANCE EXCEPTION:", str(e))
         return jsonify({"status": "error", "message": str(e)}), 500
 
 @app.route('/save_marks', methods=['POST'])
 def save_marks():
     try:
-        data = request.get_json(silent=True) or request.form or {}
+        data = request.get_json(force=True, silent=True) or request.form or {}
         wks = sheet.worksheet("Marks_Log")
         
         class_name = data.get('class_name', '')
@@ -285,8 +288,6 @@ def save_marks():
         all_vals = [r for r in wks.get_all_values() if any(r)]
         counter = len(all_vals)
         
-        # Structure matching Marks_Log Sheet Columns:
-        # Mark_ID | Date | Class | Subject | Test_Title | Student_ID | Student_Name | Total_Marks | Obtained_Marks | Percentage | Remarks | Teacher_Email | Timestamp | Is_Locked
         rows_to_append = []
         for m in marks_list:
             counter += 1
@@ -322,9 +323,12 @@ def save_marks():
             
         if rows_to_append:
             wks.append_rows(rows_to_append, value_input_option='USER_ENTERED')
-            
-        return jsonify({"status": "success", "message": "Marks Uploaded Successfully!"})
+            return jsonify({"status": "success", "message": "Marks Uploaded Successfully!"})
+        else:
+            return jsonify({"status": "error", "message": "No marks records received!"}), 400
+
     except Exception as e:
+        print("MARKS EXCEPTION:", str(e))
         return jsonify({"status": "error", "message": str(e)}), 500
 
 if __name__ == '__main__':
