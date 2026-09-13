@@ -82,8 +82,8 @@ def logout():
 @app.route('/attendance.html')
 @login_required
 def attendance_page():
-    return render_template('attendance.html')
-
+    return render_template('attendance_v2.html')
+    
 @app.route('/fees')
 @app.route('/fees.html')
 @login_required
