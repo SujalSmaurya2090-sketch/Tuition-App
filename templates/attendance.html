@@ -1,132 +1,199 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <link rel="manifest" href="/static/manifest.json">
-<meta name="theme-color" content="#4f46e5">
-<script>
-  if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('/static/sw.js');
-  }
-</script>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Attendance Entry</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Rapid Attendance Entry</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { font-family: sans-serif; background-color: #f8fafc; }
+    </style>
 </head>
-<body class="bg-gray-50 min-h-screen p-3 md:p-6">
-    <div class="max-w-xl mx-auto bg-white rounded-2xl shadow-md p-5 border border-gray-100">
-        <div class="flex justify-between items-center mb-5 border-b pb-3">
-            <h2 class="text-xl font-bold text-gray-800">📋 Rapid Attendance Entry</h2>
-            <a href="/" class="text-indigo-600 text-sm font-semibold hover:underline">← Home</a>
-        </div>
+<body class="p-3 sm:p-6">
 
-        <div class="mb-4">
-            <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Select Batch / Class:</label>
-            <select id="classSelect" onchange="loadStudents()" class="w-full border-2 border-indigo-500 rounded-xl p-3 font-bold text-indigo-800 text-lg">
-                <option value="">-- Choose Class --</option>
+<div class="max-w-xl mx-auto bg-white rounded-2xl shadow-lg border border-gray-100 p-4 sm:p-6">
+    <div class="flex justify-between items-center mb-4">
+        <h2 class="text-xl font-bold text-gray-800 flex items-center gap-2">
+            📋 Rapid Attendance Entry
+        </h2>
+        <a href="/" class="text-sm text-indigo-600 hover:underline">← Home</a>
+    </div>
+
+    <!-- Alert Box -->
+    <div id="alertBox" class="hidden mb-4 p-3 text-sm rounded-xl font-medium"></div>
+
+    <div class="space-y-4 mb-6">
+        <div>
+            <label class="block text-xs font-bold uppercase text-gray-500 mb-1">Select Batch / Class:</label>
+            <select id="classSelect" onchange="loadStudents()" class="w-full h-12 px-3 border-2 border-indigo-500 rounded-xl font-bold text-indigo-900 bg-white focus:outline-none">
+                <option value="">-- Select Class --</option>
             </select>
         </div>
 
-        <div id="alertBox" class="hidden mb-4 p-3 rounded-xl text-sm font-bold"></div>
-
-        <div id="studentContainer" class="space-y-2 mb-6">
-            <p class="text-gray-400 text-center py-6 text-sm">Please select a class to display students.</p>
+        <div>
+            <label class="block text-xs font-bold uppercase text-gray-500 mb-1">Date:</label>
+            <input type="date" id="attDate" class="w-full h-10 px-3 border border-gray-300 rounded-xl bg-gray-50 font-medium text-gray-700">
         </div>
-
-        <button id="submitBtn" onclick="submitAttendance()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3.5 rounded-xl shadow-lg text-lg hidden active:scale-95 transition">
-            Submit Attendance
-        </button>
     </div>
 
-    <script>
-        let studentState = [];
+    <!-- Student Cards Container -->
+    <div id="studentListContainer" class="space-y-3 mb-6">
+        <p class="text-center text-gray-400 py-4">Please select a class to load students</p>
+    </div>
 
-        window.onload = async function() {
-            const res = await fetch('/get_classes');
-            const data = await res.json();
-            const classSelect = document.getElementById('classSelect');
-            if(data.classes) {
-                data.classes.forEach(c => classSelect.innerHTML += `<option value="${c}">${c}</option>`);
+    <button id="submitBtn" onclick="submitAttendance()" class="w-full h-12 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl shadow-md flex items-center justify-center gap-2 transition-all">
+        Submit Attendance
+    </button>
+</div>
+
+<script>
+    document.getElementById('attDate').value = new Date().toISOString().split('T')[0];
+
+    window.onload = function() {
+        fetch('/get_classes')
+            .then(res => res.json())
+            .then(data => {
+                const select = document.getElementById('classSelect');
+                select.innerHTML = '<option value="">-- Select Class --</option>';
+                data.classes.forEach(cls => {
+                    select.innerHTML += `<option value="${cls}">${cls}</option>`;
+                });
+            })
+            .catch(err => showAlert("Failed to fetch classes from database", "red"));
+    };
+
+    function showAlert(msg, color) {
+        const box = document.getElementById('alertBox');
+        box.classList.remove('hidden', 'bg-red-100', 'text-red-700', 'bg-green-100', 'text-green-700', 'bg-yellow-100', 'text-yellow-700');
+        if (color === 'red') box.classList.add('bg-red-100', 'text-red-700');
+        else if (color === 'green') box.classList.add('bg-green-100', 'text-green-700');
+        else box.classList.add('bg-yellow-100', 'text-yellow-700');
+        box.innerText = msg;
+    }
+
+    function loadStudents() {
+        const selectedClass = document.getElementById('classSelect').value;
+        const container = document.getElementById('studentListContainer');
+
+        if (!selectedClass) {
+            container.innerHTML = `<p class="text-center text-gray-400 py-4">Please select a class to load students</p>`;
+            return;
+        }
+
+        container.innerHTML = `<p class="text-center text-indigo-600 font-medium py-4">Loading students...</p>`;
+
+        fetch(`/get_students/${encodeURIComponent(selectedClass)}`)
+            .then(res => res.json())
+            .then(data => {
+                container.innerHTML = "";
+                if (!data.students || data.students.length === 0) {
+                    container.innerHTML = `<p class="text-center text-red-500 py-4">No active students found in this class.</p>`;
+                    return;
+                }
+
+                data.students.forEach(st => {
+    container.innerHTML += `
+        <div class="student-card flex items-center justify-between p-3.5 bg-gray-50 rounded-xl border border-gray-200"
+             data-id="${st.Student_ID}" 
+             data-name="${st.Full_Name}">
+            <div>
+                <div class="font-bold text-gray-800">${st.Full_Name}</div>
+                <div class="text-xs text-gray-400 font-mono">ID: ${st.Student_ID}</div>
+            </div>
+            <button type="button" 
+                    onclick="toggleStatus(this)" 
+                    class="status-btn px-5 py-2 rounded-lg text-sm font-bold transition-all bg-emerald-500 text-white">
+                Present
+            </button>
+        </div>
+    `;
+});
+            })
+            .catch(err => {
+                container.innerHTML = `<p class="text-center text-red-500 py-4">Error loading student list.</p>`;
+            });
+    }
+
+    function toggleStatus(btn) {
+        if (btn.innerText.trim() === 'Present') {
+            btn.innerText = 'Absent';
+            btn.className = 'status-btn px-5 py-2 rounded-lg text-sm font-bold transition-all bg-rose-500 text-white';
+        } else {
+            btn.innerText = 'Present';
+            btn.className = 'status-btn px-5 py-2 rounded-lg text-sm font-bold transition-all bg-emerald-500 text-white';
+        }
+    }
+
+    function submitAttendance() {
+        const className = document.getElementById('classSelect').value;
+        const attDate = document.getElementById('attDate').value;
+        const submitBtn = document.getElementById('submitBtn');
+
+        if (!className) {
+            showAlert("Please select a class first!", "yellow");
+            return;
+        }
+
+        const cards = document.querySelectorAll('.student-card');
+        const attendanceData = [];
+
+        cards.forEach(card => {
+            const sId = card.getAttribute('data-id');
+            const sName = card.getAttribute('data-name');
+            const btn = card.querySelector('.status-btn');
+            const status = btn ? btn.innerText.trim() : 'Present';
+
+            if (sId && sName) {
+                attendanceData.push({
+                    student_id: sId,
+                    student_name: sName,
+                    status: status
+                });
             }
+        });
+
+        if (attendanceData.length === 0) {
+            showAlert("No student records found to submit!", "red");
+            return;
+        }
+
+        submitBtn.disabled = true;
+        submitBtn.innerText = "Saving to Google Sheet...";
+
+        const payload = {
+            class_name: className,
+            date: attDate,
+            attendance_data: attendanceData
         };
 
-        async function loadStudents() {
-            const className = document.getElementById('classSelect').value;
-            const container = document.getElementById('studentContainer');
-            const submitBtn = document.getElementById('submitBtn');
-            const alertBox = document.getElementById('alertBox');
-            
-            alertBox.classList.add('hidden');
-            if(!className) {
-                container.innerHTML = '<p class="text-gray-400 text-center py-6 text-sm">Please select a class to display students.</p>';
-                submitBtn.classList.add('hidden');
-                return;
-            }
+        fetch('/save_attendance', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(payload)
+        })
+        .then(res => res.json())
+        .then(result => {
+            submitBtn.disabled = false;
+            submitBtn.innerText = "Submit Attendance";
 
-            const res = await fetch(`/get_students/${className}`);
-            const data = await res.json();
-            studentState = (data.students || []).map(s => ({ ...s, status: 'Present' }));
-
-            if(studentState.length === 0) {
-                container.innerHTML = '<p class="text-gray-400 text-center py-6 text-sm">No active students registered in this batch.</p>';
-                submitBtn.classList.add('hidden');
-                return;
-            }
-
-            renderStudents();
-            submitBtn.classList.remove('hidden');
-        }
-
-        function renderStudents() {
-            const container = document.getElementById('studentContainer');
-            container.innerHTML = '';
-            studentState.forEach((s, idx) => {
-                const isPresent = s.status === 'Present';
-                container.innerHTML += `
-                    <div class="flex justify-between items-center p-3 border rounded-xl bg-gray-50">
-                        <div>
-                            <p class="font-bold text-gray-800 text-base">${s.Full_Name}</p>
-                            <p class="text-xs text-gray-400 font-semibold">ID: ${s.Student_ID}</p>
-                        </div>
-                        <button onclick="toggleStatus(${idx})" class="px-5 py-2 rounded-xl font-bold text-sm transition ${isPresent ? 'bg-emerald-500 text-white' : 'bg-rose-500 text-white'}">
-                            ${s.status}
-                        </button>
-                    </div>
-                `;
-            });
-        }
-
-        function toggleStatus(idx) {
-            studentState[idx].status = studentState[idx].status === 'Present' ? 'Absent' : 'Present';
-            renderStudents();
-        }
-
-        async function submitAttendance() {
-            const className = document.getElementById('classSelect').value;
-            const alertBox = document.getElementById('alertBox');
-            
-            const payload = {
-                class_name: className,
-                attendance: studentState.map(s => ({ student_id: s.Student_ID, student_name: s.Full_Name, status: s.status }))
-            };
-
-            const res = await fetch('/save_attendance', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify(payload)
-            });
-            const result = await res.json();
-
-            alertBox.classList.remove('hidden');
-            if(res.ok && result.status === 'success') {
-                alertBox.className = "mb-4 p-3 rounded-xl text-sm font-bold bg-green-100 text-green-700";
-                alertBox.innerText = result.message;
-                setTimeout(() => location.reload(), 1500);
+            if (result.status === "success") {
+                showAlert("✅ " + result.message, "green");
+                setTimeout(() => {
+                    document.getElementById('studentListContainer').innerHTML = `<p class="text-center text-gray-400 py-4">Select a class to mark attendance again.</p>`;
+                }, 1500);
             } else {
-                alertBox.className = "mb-4 p-3 rounded-xl text-sm font-bold bg-amber-100 text-amber-800 border border-amber-300";
-                alertBox.innerText = result.message;
+                showAlert("❌ Error: " + result.message, "red");
             }
-        }
-    </script>
+        })
+        .catch(err => {
+            submitBtn.disabled = false;
+            submitBtn.innerText = "Submit Attendance";
+            showAlert("❌ Connection error while saving!", "red");
+        });
+    }
+</script>
+
 </body>
 </html>
