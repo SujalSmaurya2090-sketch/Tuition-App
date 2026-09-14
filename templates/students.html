@@ -1,16 +1,60 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <link rel="manifest" href="/static/manifest.json">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<script>
-  if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('/static/sw.js');
-  }
-</script>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>New Student Registration</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Container ko full screen & responsive banane ke liye */
+        body {
+            margin: 0;
+            padding: 10px;
+            box-sizing: border-box;
+            font-family: Arial, sans-serif;
+        }
+
+        .container, .form-container, .card {
+            width: 100% !important;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 15px;
+            box-sizing: border-box;
+        }
+
+        /* Form inputs & buttons ko mobile friendly sizing dene ke liye */
+        input[type="text"],
+        input[type="number"],
+        input[type="date"],
+        input[type="tel"],
+        select,
+        button {
+            width: 100% !important;
+            height: 45px;
+            font-size: 16px !important;
+            margin-bottom: 12px;
+            box-sizing: border-box;
+            border-radius: 8px;
+        }
+
+        /* Mobile Screens ke liye Extra Tuning */
+        @media screen and (max-width: 768px) {
+            body {
+                padding: 5px;
+            }
+
+            .form-group {
+                width: 100% !important;
+                display: block;
+            }
+        }
+
+        .table-responsive {
+            width: 100%;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+    </style>
 </head>
 <body class="bg-gray-100 min-h-screen p-4">
     <div class="max-w-xl mx-auto bg-white rounded-xl shadow-md p-6">
@@ -24,34 +68,40 @@
                 <label class="block font-semibold text-gray-700">Full Name:</label>
                 <input type="text" id="fullName" required class="w-full border-2 border-gray-300 rounded-lg p-2 font-medium" placeholder="e.g. Ramesh Patel">
             </div>
+
             <div>
                 <label class="block font-semibold text-gray-700">Class / Batch:</label>
                 <input type="text" id="className" required class="w-full border-2 border-gray-300 rounded-lg p-2 font-medium" placeholder="e.g. 10th Science">
             </div>
+
             <div>
                 <label class="block font-semibold text-gray-700">Parent Contact Mobile:</label>
                 <input type="tel" id="parentContact" required class="w-full border-2 border-gray-300 rounded-lg p-2 font-medium" placeholder="e.g. 9876543210">
             </div>
+
             <div>
                 <label class="block font-semibold text-gray-700">Monthly Fee Amount (₹):</label>
                 <input type="number" id="monthlyFee" required class="w-full border-2 border-gray-300 rounded-lg p-2 font-medium" placeholder="e.g. 1500">
             </div>
+
             <div>
                 <label class="block font-semibold text-gray-700">Joining Date:</label>
                 <input type="date" id="joiningDate" required class="w-full border-2 border-gray-300 rounded-lg p-2 font-medium">
             </div>
 
             <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-lg shadow-lg text-lg">
-                ➕ Register Student
+                + Register Student
             </button>
         </form>
     </div>
 
     <script>
+        // Set default date to today
         document.getElementById('joiningDate').valueAsDate = new Date();
 
         async function registerStudent(e) {
             e.preventDefault();
+
             const payload = {
                 full_name: document.getElementById('fullName').value.trim(),
                 class_name: document.getElementById('className').value.trim(),
@@ -60,64 +110,28 @@
                 joining_date: document.getElementById('joiningDate').value
             };
 
-            const res = await fetch('/add_student', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify(payload)
-            });
-            const result = await res.json();
-            alert(result.message);
-            if(result.status === 'success') location.reload();
+            try {
+                const res = await fetch('/add_student', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(payload)
+                });
+
+                const result = await res.json();
+                
+                if (res.ok) {
+                    alert(result.message || 'Student Registered Successfully!');
+                    location.reload();
+                } else {
+                    alert('Error: ' + (result.error || 'Failed to add student'));
+                }
+            } catch (err) {
+                console.error("Submission error:", err);
+                alert("Network error: Could not reach the server.");
+            }
         }
-
-        /* Container ko full screen & responsive banane ke liye */
-body {
-    margin: 0;
-    padding: 10px;
-    box-sizing: border-box;
-    font-family: Arial, sans-serif;
-}
-
-.container, .form-container, .card {
-    width: 100% !important;
-    max-width: 600px; /* Large screen par decent size rahega */
-    margin: 0 auto;
-    padding: 15px;
-    box-sizing: border-box;
-}
-
-/* Form inputs & buttons ko mobile friendly sizing dene ke liye */
-input[type="text"],
-input[type="number"],
-input[type="date"],
-select,
-button {
-    width: 100% !important;
-    height: 45px; /* Touch target easy karne ke liye */
-    font-size: 16px !important; /* Mobile zoom auto-trigger hone se rokta hai */
-    margin-bottom: 12px;
-    box-sizing: border-box;
-    border-radius: 8px;
-}
-
-/* Mobile Screens ke liye Extra Tuning */
-@media screen and (max-width: 768px) {
-    body {
-        padding: 5px;
-    }
-    
-    .form-group {
-        width: 100% !important;
-        display: block;
-    }
-
-    /* Table horizontal scroll Enable karne ke liye */
-    .table-responsive {
-        width: 100%;
-        overflow-x: auto;
-        -webkit-overflow-scrolling: touch;
-    }
-}
     </script>
 </body>
 </html>
