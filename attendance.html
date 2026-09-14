@@ -92,22 +92,22 @@
                 }
 
                 data.students.forEach(st => {
-                    container.innerHTML += `
-                        <div class="student-card flex items-center justify-between p-3.5 bg-gray-50 rounded-xl border border-gray-200"
-                             data-id="${st.Student_ID}" 
-                             data-name="${st.Full_Name}">
-                            <div>
-                                <div class="font-bold text-gray-800">${st.Full_Name}</div>
-                                <div class="text-xs text-gray-400 font-mono">ID: ${st.Student_ID}</div>
-                            </div>
-                            <button type="button" 
-                                    onclick="toggleStatus(this)" 
-                                    class="status-btn px-5 py-2 rounded-lg text-sm font-bold transition-all bg-emerald-500 text-white">
-                                Present
-                            </button>
-                        </div>
-                    `;
-                });
+    container.innerHTML += `
+        <div class="student-card flex items-center justify-between p-3.5 bg-gray-50 rounded-xl border border-gray-200"
+             data-id="${st.Student_ID}" 
+             data-name="${st.Full_Name}">
+            <div>
+                <div class="font-bold text-gray-800">${st.Full_Name}</div>
+                <div class="text-xs text-gray-400 font-mono">ID: ${st.Student_ID}</div>
+            </div>
+            <button type="button" 
+                    onclick="toggleStatus(this)" 
+                    class="status-btn px-5 py-2 rounded-lg text-sm font-bold transition-all bg-emerald-500 text-white">
+                Present
+            </button>
+        </div>
+    `;
+});
             })
             .catch(err => {
                 container.innerHTML = `<p class="text-center text-red-500 py-4">Error loading student list.</p>`;
