@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, jsonify, redirect, url_for, session , send_from_directory
+from flask import Flask, render_template, request, jsonify, redirect, url_for, session, send_from_directory
 import gspread
 from google.oauth2.service_account import Credentials
 import os
@@ -6,9 +6,16 @@ from datetime import datetime, timedelta
 from functools import wraps
 import json
 
-@app.route('/icon.jpeg)
+# 1. Pehle Flask App initialize karo
+app = Flask(__name__)
+app.secret_key = 'tuition_app_secret_key_2026'
+
+# 2. Icon ka route app initialization ke NICHE aayega
+@app.route('/icon.jpeg')
 def serve_icon():
     return send_from_directory('.', 'icon.jpeg')
+
+app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=30)
 
 app = Flask(__name__)
 app.secret_key = 'tuition_app_secret_key_2026'
