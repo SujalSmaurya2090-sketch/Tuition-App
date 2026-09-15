@@ -362,3 +362,78 @@ def save_marks():
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
+
+@app.route('/api/admin_summary')
+@login_required
+def admin_summary():
+    try:
+        # 1. Attendance Log Fetching
+        att_sheet = sheet.worksheet("Attendance_Log")
+        att_records = att_sheet.get_all_records()
+        
+        # Aaj ke Absent Students
+        today_str = datetime.now().strftime("%Y-%m-%d")
+        absent_list = []
+        today_present = 0
+        today_absent = 0
+
+        for row in att_records:
+            row_date = str(row.get('Date', '')).strip()
+            # Handle date matching flexibly
+            if today_str in row_date or row_date in today_str:
+                status = str(row.get('Status', '')).strip().lower()
+                if status == 'absent':
+                    today_absent += 1
+                    absent_list.append({
+                        'student_id': row.get('Student_ID'),
+                        'name': row.get('Student_Name'),
+                        'class': row.get('Class')
+                    })
+                elif status == 'present':
+                    today_present += 1
+
+        # 2. Marks Log Fetching (Latest 10 Test Results)
+        marks_sheet = sheet.worksheet("Marks_Log")
+        marks_records = marks_sheet.get_all_records()
+        recent_marks = []
+        for row in marks_records[-10:]: # last 10 records
+            recent_marks.append({
+                'date': row.get('Date'),
+                'class': row.get('Class'),
+                'subject': row.get('Subject'),
+                'test_title': row.get('Test_Title'),
+                'name': row.get('Student_Name'),
+                'obtained': row.get('Obtained_Marks'),
+                'total': row.get('Total_Marks')
+            })
+
+        # 3. Fees Log Fetching (Latest 10 Fee Collections)
+        fees_sheet = sheet.worksheet("Fees_Log")
+        fees_records = fees_sheet.get_all_records()
+        recent_fees = []
+        total_collection = 0
+        
+        for row in fees_records:
+            amt = float(str(row.get('Amount_Paid', 0)).replace('₹','').replace(',','').strip() or 0)
+            total_collection += amt
+
+        for row in fees_records[-10:]:
+            recent_fees.append({
+                'date': row.get('Payment_Date'),
+                'name': row.get('Student_Name'),
+                'class': row.get('Class'),
+                'amount': row.get('Amount_Paid'),
+                'mode': row.get('Payment_Mode')
+            })
+
+        return jsonify({
+            'status': 'success',
+            'today_present': today_present,
+            'today_absent': today_absent,
+            'total_collection': total_collection,
+            'absent_students': absent_list,
+            'recent_marks': list(reversed(recent_marks)),
+            'recent_fees': list(reversed(recent_fees))
+        })
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': str(e)}), 500
