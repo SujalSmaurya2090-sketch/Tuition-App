@@ -367,20 +367,28 @@ if __name__ == '__main__':
 @login_required
 def admin_summary():
     try:
-        # 1. Attendance Log Fetching
+       # 1. Attendance Log Fetching
         att_sheet = sheet.worksheet("Attendance_Log")
         att_records = att_sheet.get_all_records()
         
-        # Aaj ke Absent Students
-        today_str = datetime.now().strftime("%Y-%m-%d")
+        # Multiple date formats support (2026-09-15, 9/15/2026, 15/09/2026)
+        now = datetime.now()
+        possible_today_dates = [
+            now.strftime("%Y-%m-%d"),            # 2026-09-15
+            f"{now.month}/{now.day}/{now.year}",  # 9/15/2026
+            now.strftime("%d/%m/%Y"),            # 15/09/2026
+            now.strftime("%Y/%m/%d")             # 2026/09/15
+        ]
+
         absent_list = []
         today_present = 0
         today_absent = 0
 
         for row in att_records:
             row_date = str(row.get('Date', '')).strip()
-            # Handle date matching flexibly
-            if today_str in row_date or row_date in today_str:
+            
+            # Match date with any common format
+            if any(d == row_date or d in row_date for d in possible_today_dates):
                 status = str(row.get('Status', '')).strip().lower()
                 if status == 'absent':
                     today_absent += 1
@@ -391,7 +399,7 @@ def admin_summary():
                     })
                 elif status == 'present':
                     today_present += 1
-
+                    
         # 2. Marks Log Fetching (Latest 10 Test Results)
         marks_sheet = sheet.worksheet("Marks_Log")
         marks_records = marks_sheet.get_all_records()
