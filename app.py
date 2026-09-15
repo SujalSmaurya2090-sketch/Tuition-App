@@ -367,44 +367,37 @@ if __name__ == '__main__':
 @login_required
 def admin_summary():
     try:
-       # 1. Attendance Log Fetching
+        # 1. Attendance Log Fetching
         att_sheet = sheet.worksheet("Attendance_Log")
         att_records = att_sheet.get_all_records()
         
-        # Multiple date formats support (2026-09-15, 9/15/2026, 15/09/2026)
-        now = datetime.now()
-        possible_today_dates = [
-            now.strftime("%Y-%m-%d"),            # 2026-09-15
-            f"{now.month}/{now.day}/{now.year}",  # 9/15/2026
-            now.strftime("%d/%m/%Y"),            # 15/09/2026
-            now.strftime("%Y/%m/%d")             # 2026/09/15
-        ]
-
         absent_list = []
         today_present = 0
         today_absent = 0
 
-        for row in att_records:
-            row_date = str(row.get('Date', '')).strip()
-            
-            # Match date with any common format
-            if any(d == row_date or d in row_date for d in possible_today_dates):
-                status = str(row.get('Status', '')).strip().lower()
-                if status == 'absent':
-                    today_absent += 1
-                    absent_list.append({
-                        'student_id': row.get('Student_ID'),
-                        'name': row.get('Student_Name'),
-                        'class': row.get('Class')
-                    })
-                elif status == 'present':
-                    today_present += 1
-                    
+        if att_records:
+            # Sheet mein se sabse aakhiri/latest entry ki date nikalein
+            latest_date = str(att_records[-1].get('Date', '')).strip()
+
+            for row in att_records:
+                row_date = str(row.get('Date', '')).strip()
+                if row_date == latest_date:
+                    status = str(row.get('Status', '')).strip().lower()
+                    if status == 'absent':
+                        today_absent += 1
+                        absent_list.append({
+                            'student_id': row.get('Student_ID'),
+                            'name': row.get('Student_Name'),
+                            'class': row.get('Class')
+                        })
+                    elif status == 'present':
+                        today_present += 1
+
         # 2. Marks Log Fetching (Latest 10 Test Results)
         marks_sheet = sheet.worksheet("Marks_Log")
         marks_records = marks_sheet.get_all_records()
         recent_marks = []
-        for row in marks_records[-10:]: # last 10 records
+        for row in marks_records[-10:]:
             recent_marks.append({
                 'date': row.get('Date'),
                 'class': row.get('Class'),
