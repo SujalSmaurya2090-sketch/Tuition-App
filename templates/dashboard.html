@@ -181,6 +181,67 @@ document.addEventListener("DOMContentLoaded", function() {
         })
         .catch(err => console.error("Error loading dashboard data:", err));
 });
+
+    function loadTeacherAttendanceList() {
+    fetch('/api/get_teacher_attendance')
+        .then(res => res.json())
+        .then(data => {
+            if(data.status === 'success') {
+                const container = document.getElementById('teacher-attendance-container');
+                if(data.teachers.length === 0) {
+                    container.innerHTML = `<p class="text-xs text-slate-400">Koi active teacher nahi mila.</p>`;
+                    return;
+                }
+                
+                container.innerHTML = data.teachers.map(t => {
+                    const isPresent = t.status.toLowerCase() === 'present' || t.status.toLowerCase() === 'active';
+                    const isAbsent = t.status.toLowerCase() === 'absent';
+                    
+                    return `
+                        <div class="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-100">
+                            <div>
+                                <p class="text-sm font-bold text-slate-800">${t.name}</p>
+                                <p class="text-xs text-slate-500">ID: <span class="font-semibold text-slate-700">${t.id}</span> | Role: ${t.role}</p>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <button onclick="changeTeacherStatus(${t.row_id}, 'Present')" 
+                                    class="px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all ${isPresent ? 'bg-emerald-600 text-white shadow-sm' : 'bg-slate-200 text-slate-600 hover:bg-slate-300'}">
+                                    Present
+                                </button>
+                                <button onclick="changeTeacherStatus(${t.row_id}, 'Absent')" 
+                                    class="px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all ${isAbsent ? 'bg-rose-600 text-white shadow-sm' : 'bg-slate-200 text-slate-600 hover:bg-slate-300'}">
+                                    Absent
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            }
+        })
+        .catch(err => console.error("Teacher attendance loading error:", err));
+}
+
+function changeTeacherStatus(rowId, newStatus) {
+    fetch('/api/mark_teacher_attendance', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ row_id: rowId, status: newStatus })
+    })
+    .then(res => res.json())
+    .then(data => {
+        if(data.status === 'success') {
+            loadTeacherAttendanceList(); // UI Refresh
+        } else {
+            alert("Error updating status: " + data.message);
+        }
+    });
+}
+
+// Page load listener mein add karein
+document.addEventListener("DOMContentLoaded", function() {
+    loadTeacherAttendanceList();
+});
+    
 </script>
 
     <script>
