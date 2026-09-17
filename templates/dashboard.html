@@ -129,65 +129,75 @@
 
 </div>
 
-<!-- Auto Fetch Data Script -->
 <script>
 document.addEventListener("DOMContentLoaded", function() {
+    // Admin Summary Fetch (Stats, Absentees, Marks)
     fetch('/api/admin_summary')
         .then(res => res.json())
         .then(data => {
             if(data.status === 'success') {
-                // Update Top Stats
                 if(document.getElementById('statPresent')) document.getElementById('statPresent').innerText = data.today_present;
                 if(document.getElementById('statAbsent')) document.getElementById('statAbsent').innerText = data.today_absent;
                 if(document.getElementById('statFees')) document.getElementById('statFees').innerText = "₹" + data.total_collection;
 
-                // 1. Render Absent Students
+                // Render Absent Students
                 const absentContainer = document.getElementById('absent-list');
-                document.getElementById('absent-count-badge').innerText = data.today_absent;
+                if(document.getElementById('absent-count-badge')) {
+                    document.getElementById('absent-count-badge').innerText = data.today_absent;
+                }
                 
                 if(data.absent_students.length === 0) {
-                    absentContainer.innerHTML = `<p class="text-xs text-emerald-600 font-semibold bg-emerald-50 p-2.5 rounded-xl">🎉 Sabhi students aaj present hain!</p>`;
+                    if(absentContainer) absentContainer.innerHTML = `<p class="text-xs text-emerald-600 font-semibold bg-emerald-50 p-2.5 rounded-xl">🎉 Sabhi students aaj present hain!</p>`;
                 } else {
-                    absentContainer.innerHTML = data.absent_students.map(s => `
-                        <div class="flex items-center justify-between p-2.5 bg-rose-50/60 rounded-xl border border-rose-100">
-                            <div>
-                                <p class="text-sm font-bold text-slate-800">${s.name}</p>
-                                <p class="text-xs text-slate-500">Class: ${s.class} | ID: ${s.student_id}</p>
+                    if(absentContainer) {
+                        absentContainer.innerHTML = data.absent_students.map(s => `
+                            <div class="flex items-center justify-between p-2.5 bg-rose-50/60 rounded-xl border border-rose-100">
+                                <div>
+                                    <p class="text-sm font-bold text-slate-800">${s.name}</p>
+                                    <p class="text-xs text-slate-500">Class: ${s.class} | ID: ${s.student_id}</p>
+                                </div>
+                                <span class="text-xs bg-rose-600 text-white font-semibold px-2 py-0.5 rounded">Absent</span>
                             </div>
-                            <span class="text-xs bg-rose-600 text-white font-semibold px-2 py-0.5 rounded">Absent</span>
-                        </div>
-                    `).join('');
+                        `).join('');
+                    }
                 }
 
-                // 2. Render Test Marks
+                // Render Test Marks
                 const marksContainer = document.getElementById('marks-list');
-                if(data.recent_marks.length === 0) {
-                    marksContainer.innerHTML = `<p class="text-xs text-slate-400">Koi test record nahi mila.</p>`;
-                } else {
-                    marksContainer.innerHTML = data.recent_marks.map(m => `
-                        <div class="flex items-center justify-between p-2.5 bg-slate-50 rounded-xl border border-slate-100 text-xs">
-                            <div>
-                                <p class="font-bold text-slate-800">${m.name} <span class="font-normal text-slate-500">(${m.class} - ${m.subject})</span></p>
-                                <p class="text-slate-400">${m.test_title} • ${m.date}</p>
+                if(marksContainer) {
+                    if(data.recent_marks.length === 0) {
+                        marksContainer.innerHTML = `<p class="text-xs text-slate-400">Koi test record nahi mila.</p>`;
+                    } else {
+                        marksContainer.innerHTML = data.recent_marks.map(m => `
+                            <div class="flex items-center justify-between p-2.5 bg-slate-50 rounded-xl border border-slate-100 text-xs">
+                                <div>
+                                    <p class="font-bold text-slate-800">${m.name} <span class="font-normal text-slate-500">(${m.class} - ${m.subject})</span></p>
+                                    <p class="text-slate-400">${m.test_title} • ${m.date}</p>
+                                </div>
+                                <div class="text-right">
+                                    <span class="font-black text-indigo-600 text-sm">${m.obtained}</span>
+                                    <span class="text-slate-400">/${m.total}</span>
+                                </div>
                             </div>
-                            <div class="text-right">
-                                <span class="font-black text-indigo-600 text-sm">${m.obtained}</span>
-                                <span class="text-slate-400">/${m.total}</span>
-                            </div>
-                        </div>
-                    `).join('');
+                        `).join('');
+                    }
                 }
             }
         })
         .catch(err => console.error("Error loading dashboard data:", err));
+
+    // Load Teacher Attendance
+    loadTeacherAttendanceList();
 });
 
-    function loadTeacherAttendanceList() {
+function loadTeacherAttendanceList() {
     fetch('/api/get_teacher_attendance')
         .then(res => res.json())
         .then(data => {
             if(data.status === 'success') {
                 const container = document.getElementById('teacher-attendance-container');
+                if(!container) return;
+
                 if(data.teachers.length === 0) {
                     container.innerHTML = `<p class="text-xs text-slate-400">Koi active teacher nahi mila.</p>`;
                     return;
@@ -230,18 +240,12 @@ function changeTeacherStatus(rowId, newStatus) {
     .then(res => res.json())
     .then(data => {
         if(data.status === 'success') {
-            loadTeacherAttendanceList(); // UI Refresh
+            loadTeacherAttendanceList();
         } else {
             alert("Error updating status: " + data.message);
         }
     });
 }
-
-// Page load listener mein add karein
-document.addEventListener("DOMContentLoaded", function() {
-    loadTeacherAttendanceList();
-});
-    
 </script>
 
     <script>
