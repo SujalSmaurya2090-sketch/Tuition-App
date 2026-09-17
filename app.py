@@ -438,3 +438,46 @@ def admin_summary():
         })
     except Exception as e:
         return jsonify({'status': 'error', 'message': str(e)}), 500
+
+# 1. Teachers Fetching Route (Skips empty rows safely)
+@app.route('/api/get_teacher_attendance')
+@login_required
+def get_teacher_attendance():
+    try:
+        teacher_sheet = sheet.worksheet("Teacher_Master")
+        records = teacher_sheet.get_all_records()
+        
+        teachers = []
+        for index, row in enumerate(records, start=2):  # Row 2 से data start होता है
+            t_id = str(row.get('Teacher_id', '')).strip()
+            t_name = str(row.get('Full_Name', '')).strip()
+            
+            # Khali rows ko skip karein
+            if t_id and t_name:
+                teachers.append({
+                    'row_id': index,
+                    'id': t_id,
+                    'name': t_name,
+                    'role': str(row.get('Role', '')).strip(),
+                    'status': str(row.get('Status', 'Active')).strip()
+                })
+        return jsonify({'status': 'success', 'teachers': teachers})
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+# 2. Teacher Attendance Update Route (Updates Column E safely)
+@app.route('/api/mark_teacher_attendance', methods=['POST'])
+@login_required
+def mark_teacher_attendance():
+    try:
+        data = request.json
+        row_id = data.get('row_id')
+        status = data.get('status')  # 'Present' / 'Absent' / 'Active'
+        
+        teacher_sheet = sheet.worksheet("Teacher_Master")
+        # Column 5 (E - Status) ko safe cell-update karein
+        teacher_sheet.update_cell(row_id, 5, status)
+        
+        return jsonify({'status': 'success', 'message': 'Teacher status updated successfully'})
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': str(e)}), 500
