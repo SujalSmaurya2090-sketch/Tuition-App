@@ -6,22 +6,17 @@ from datetime import datetime, timedelta
 from functools import wraps
 import json
 
-# 1. Pehle Flask App initialize karo
+# 1. Initialize Flask App once
 app = Flask(__name__)
-app.secret_key = 'tuition_app_secret_key_2026'
+app.secret_key = os.environ.get('SECRET_KEY', 'tuition_app_secret_key_2026')
+app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=30)
 
-# 2. Icon ka route app initialization ke NICHE aayega
+# Serve App Icon
 @app.route('/icon.jpeg')
 def serve_icon():
     return send_from_directory('.', 'icon.jpeg')
 
-app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=30)
-
-app = Flask(__name__)
-app.secret_key = 'tuition_app_secret_key_2026'
-
-app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=30)
-
+# 2. Google Sheets Authentication
 SCOPE = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
 
 creds_json = os.environ.get("GOOGLE_CREDENTIALS")
@@ -34,6 +29,7 @@ else:
 client = gspread.authorize(creds)
 sheet = client.open("Tuition_Master_Database")
 
+# Decorator for Login Protection
 def login_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
@@ -121,7 +117,7 @@ def teacher_portal_page():
     user_info = {"user_name": session.get('username', 'Teacher')}
     return render_template('teacher_portal.html', user=user_info)
 
-# --- APIS FOR FRONTEND JS ---
+# --- APIS FOR FRONTEND JS & DASHBOARD ---
 
 @app.route('/get_classes')
 @app.route('/api/get_classes')
@@ -175,15 +171,7 @@ def add_student():
         fee = data.get('monthly_fee') or data.get('fee') or ''
         joining_date = data.get('joining_date') or datetime.now().strftime("%Y-%m-%d")
         
-        new_row = [
-            next_id,
-            name,
-            student_class,
-            contact,
-            fee,
-            "Active",
-            joining_date
-        ]
+        new_row = [next_id, name, student_class, contact, fee, "Active", joining_date]
         
         wks.append_row(new_row, value_input_option='USER_ENTERED')
         return jsonify({"status": "success", "message": "Student Added Successfully!"})
@@ -226,7 +214,6 @@ def save_attendance():
         data = request.get_json(force=True, silent=True) or request.form or {}
         wks = sheet.worksheet("Attendance_Log")
         
-        # Multiple keys check karna for old & new JS cache compatibility
         records = (
             data.get('attendance_data') or 
             data.get('records') or 
@@ -235,7 +222,6 @@ def save_attendance():
             []
         )
         
-        # Agar payload direct array ke roop me aaya ho
         if isinstance(data, list):
             records = data
             
@@ -244,9 +230,7 @@ def save_attendance():
         marked_by = session.get('email', 'Teacher')
         now_ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-        # Emergency Fallback: Agar JS ne empty array bheja hai, to Form Data / Raw Parse check karo
         if not records:
-            # Check raw json fallback
             try:
                 raw_body = json.loads(request.data)
                 records = raw_body.get('attendance_data', raw_body.get('records', []))
@@ -273,15 +257,7 @@ def save_attendance():
             item_cls = item.get('class_name') or item.get('class') or class_name
             
             rows_to_append.append([
-                log_id,
-                att_date,
-                item_cls,
-                s_id,
-                s_name,
-                status,
-                marked_by,
-                now_ts,
-                "Unlocked"
+                log_id, att_date, item_cls, s_id, s_name, status, marked_by, now_ts, "Unlocked"
             ])
             
         if rows_to_append:
@@ -291,9 +267,8 @@ def save_attendance():
             return jsonify({"status": "error", "message": "No valid rows generated"}), 400
 
     except Exception as e:
-        print("ATTENDANCE ERROR:", str(e))
         return jsonify({"status": "error", "message": str(e)}), 500
-        
+
 @app.route('/save_marks', methods=['POST'])
 def save_marks():
     try:
@@ -334,20 +309,7 @@ def save_marks():
             remarks = m.get('remarks') or ''
             
             rows_to_append.append([
-                mark_id,
-                test_date,
-                class_name,
-                subject,
-                test_title,
-                s_id,
-                s_name,
-                total_marks,
-                obtained,
-                f"{percentage}%",
-                remarks,
-                teacher_email,
-                now_ts,
-                "Unlocked"
+                mark_id, test_date, class_name, subject, test_title, s_id, s_name, total_marks, obtained, f"{percentage}%", remarks, teacher_email, now_ts, "Unlocked"
             ])
             
         if rows_to_append:
@@ -357,17 +319,12 @@ def save_marks():
             return jsonify({"status": "error", "message": "No marks records received!"}), 400
 
     except Exception as e:
-        print("MARKS EXCEPTION:", str(e))
         return jsonify({"status": "error", "message": str(e)}), 500
-
-if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000)
 
 @app.route('/api/admin_summary')
 @login_required
 def admin_summary():
     try:
-        # 1. Attendance Log Fetching
         att_sheet = sheet.worksheet("Attendance_Log")
         att_records = att_sheet.get_all_records()
         
@@ -376,7 +333,6 @@ def admin_summary():
         today_absent = 0
 
         if att_records:
-            # Sheet mein se sabse aakhiri/latest entry ki date nikalein
             latest_date = str(att_records[-1].get('Date', '')).strip()
 
             for row in att_records:
@@ -393,7 +349,6 @@ def admin_summary():
                     elif status == 'present':
                         today_present += 1
 
-        # 2. Marks Log Fetching (Latest 10 Test Results)
         marks_sheet = sheet.worksheet("Marks_Log")
         marks_records = marks_sheet.get_all_records()
         recent_marks = []
@@ -408,7 +363,6 @@ def admin_summary():
                 'total': row.get('Total_Marks')
             })
 
-        # 3. Fees Log Fetching (Latest 10 Fee Collections)
         fees_sheet = sheet.worksheet("Fees_Log")
         fees_records = fees_sheet.get_all_records()
         recent_fees = []
@@ -439,7 +393,6 @@ def admin_summary():
     except Exception as e:
         return jsonify({'status': 'error', 'message': str(e)}), 500
 
-# 1. Teachers Fetching Route (Skips empty rows safely)
 @app.route('/api/get_teacher_attendance')
 @login_required
 def get_teacher_attendance():
@@ -448,11 +401,10 @@ def get_teacher_attendance():
         records = teacher_sheet.get_all_records()
         
         teachers = []
-        for index, row in enumerate(records, start=2):  # Row 2 से data start होता है
+        for index, row in enumerate(records, start=2):
             t_id = str(row.get('Teacher_id', '')).strip()
             t_name = str(row.get('Full_Name', '')).strip()
             
-            # Khali rows ko skip karein
             if t_id and t_name:
                 teachers.append({
                     'row_id': index,
@@ -465,38 +417,32 @@ def get_teacher_attendance():
     except Exception as e:
         return jsonify({'status': 'error', 'message': str(e)}), 500
 
-# Teacher Attendance Update Route (Teacher_Master Update + Teacher_Attendance_Log Entry)
 @app.route('/api/mark_teacher_attendance', methods=['POST'])
 @login_required
 def mark_teacher_attendance():
     try:
         data = request.json
         row_id = data.get('row_id')
-        status = data.get('status')  # 'Present' / 'Absent'
+        status = data.get('status')
         
-        # 1. Update status in Teacher_Master (Column E)
         teacher_sheet = sheet.worksheet("Teacher_Master")
         teacher_sheet.update_cell(row_id, 5, status)
         
-        # Teacher Details Fetch
         t_id = teacher_sheet.cell(row_id, 1).value
         t_name = teacher_sheet.cell(row_id, 2).value
         today_date = datetime.now().strftime("%Y-%m-%d")
 
-        # 2. Save Daily Log entry in Teacher_Attendance_Log
         try:
             log_sheet = sheet.worksheet("Teacher_Attendance_Log")
             log_records = log_sheet.get_all_records()
             
-            # Check if today's entry already exists for this teacher
             entry_found = False
             for idx, row in enumerate(log_records, start=2):
                 if str(row.get('Date','')).strip() == today_date and str(row.get('Teacher_ID','')).strip() == str(t_id).strip():
-                    log_sheet.update_cell(idx, 4, status) # Update status if already exists
+                    log_sheet.update_cell(idx, 4, status)
                     entry_found = True
                     break
             
-            # If entry not found for today, append new row
             if not entry_found:
                 log_sheet.append_row([today_date, t_id, t_name, status])
         except Exception as log_err:
@@ -505,3 +451,6 @@ def mark_teacher_attendance():
         return jsonify({'status': 'success', 'message': 'Teacher attendance logged successfully'})
     except Exception as e:
         return jsonify({'status': 'error', 'message': str(e)}), 500
+
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=5000, debug=True)
