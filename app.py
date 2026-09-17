@@ -465,19 +465,43 @@ def get_teacher_attendance():
     except Exception as e:
         return jsonify({'status': 'error', 'message': str(e)}), 500
 
-# 2. Teacher Attendance Update Route (Updates Column E safely)
+# Teacher Attendance Update Route (Teacher_Master Update + Teacher_Attendance_Log Entry)
 @app.route('/api/mark_teacher_attendance', methods=['POST'])
 @login_required
 def mark_teacher_attendance():
     try:
         data = request.json
         row_id = data.get('row_id')
-        status = data.get('status')  # 'Present' / 'Absent' / 'Active'
+        status = data.get('status')  # 'Present' / 'Absent'
         
+        # 1. Update status in Teacher_Master (Column E)
         teacher_sheet = sheet.worksheet("Teacher_Master")
-        # Column 5 (E - Status) ko safe cell-update karein
         teacher_sheet.update_cell(row_id, 5, status)
         
-        return jsonify({'status': 'success', 'message': 'Teacher status updated successfully'})
+        # Teacher Details Fetch
+        t_id = teacher_sheet.cell(row_id, 1).value
+        t_name = teacher_sheet.cell(row_id, 2).value
+        today_date = datetime.now().strftime("%Y-%m-%d")
+
+        # 2. Save Daily Log entry in Teacher_Attendance_Log
+        try:
+            log_sheet = sheet.worksheet("Teacher_Attendance_Log")
+            log_records = log_sheet.get_all_records()
+            
+            # Check if today's entry already exists for this teacher
+            entry_found = False
+            for idx, row in enumerate(log_records, start=2):
+                if str(row.get('Date','')).strip() == today_date and str(row.get('Teacher_ID','')).strip() == str(t_id).strip():
+                    log_sheet.update_cell(idx, 4, status) # Update status if already exists
+                    entry_found = True
+                    break
+            
+            # If entry not found for today, append new row
+            if not entry_found:
+                log_sheet.append_row([today_date, t_id, t_name, status])
+        except Exception as log_err:
+            print("Teacher_Attendance_Log error:", log_err)
+        
+        return jsonify({'status': 'success', 'message': 'Teacher attendance logged successfully'})
     except Exception as e:
         return jsonify({'status': 'error', 'message': str(e)}), 500
