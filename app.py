@@ -1,454 +1,184 @@
-from flask import Flask, render_template, request, jsonify, redirect, url_for, session, send_from_directory
-import gspread
-from google.oauth2.service_account import Credentials
 import os
-from datetime import datetime, timedelta
-from functools import wraps
 import json
+from datetime import datetime
+from flask import Flask, render_template, request, jsonify, session, redirect, url_value, flash
+import gspread
+from oauth2client.service_account import ServiceAccountCredentials
 
-# 1. Initialize Flask App once
 app = Flask(__name__)
-app.secret_key = os.environ.get('SECRET_KEY', 'tuition_app_secret_key_2026')
-app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=30)
+app.secret_key = os.environ.get("FLASK_SECRET_KEY", "ample_vision_academy_secret_key_2026")
 
-# Serve App Icon
-@app.route('/icon.jpeg')
-def serve_icon():
-    return send_from_directory('.', 'icon.jpeg')
+# --- Google Sheets Setup ---
+# Place service_account.json in the project root or use credentials dictionary
+SCOPE = [
+    "https://spreadsheets.google.com/feeds",
+    "https://www.googleapis.com/auth/drive"
+]
 
-# 2. Google Sheets Authentication
-SCOPE = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
+def get_gspread_client():
+    creds_file = os.path.join(os.path.dirname(__file__), "service_account.json")
+    if os.path.exists(creds_file):
+        creds = ServiceAccountCredentials.from_json_keyfile_name(creds_file, SCOPE)
+        return gspread.authorize(creds)
+    return None
 
-creds_json = os.environ.get("GOOGLE_CREDENTIALS")
-if creds_json:
-    creds_dict = json.loads(creds_json)
-    creds = Credentials.from_service_account_info(creds_dict, scopes=SCOPE)
-else:
-    creds = Credentials.from_service_account_file("credentials.json", scopes=SCOPE)
+# Static Staff Credentials for Access Control
+STAFF_USERS = {
+    "admin@amplevision.com": "admin123",
+    "staff@amplevision.com": "staff123"
+}
 
-client = gspread.authorize(creds)
-sheet = client.open("Tuition_Master_Database")
+# --- Auxiliary Functions ---
+def fetch_sheet_records(sheet_name):
+    client = get_gspread_client()
+    if not client:
+        return []
+    try:
+        sheet = client.open("Ample_Vision_Database").worksheet(sheet_name)
+        return sheet.get_all_records()
+    except Exception as e:
+        print(f"Error fetching sheet {sheet_name}: {e}")
+        return []
 
-# Decorator for Login Protection
-def login_required(f):
-    @wraps(f)
-    def decorated_function(*args, **kwargs):
-        if 'logged_in' not in session:
-            return redirect(url_for('login'))
-        return f(*args, **kwargs)
-    return decorated_function
-
-# --- PAGE ROUTES ---
-
-@app.route('/')
-@login_required
-def home():
-    user_info = {"user_name": session.get('username', 'User'), "email": session.get('email', '')}
-    if session.get('role') == 'Teacher':
-        return render_template('teacher_portal.html', user=user_info)
-    return render_template('dashboard.html', user=user_info)
-
+# --- Authentication Routes ---
 @app.route('/login', methods=['GET', 'POST'])
 def login():
-    error_msg = None
     if request.method == 'POST':
-        email = (request.form.get('email') or request.form.get('username') or '').strip().lower()
-        
-        try:
-            wks = sheet.worksheet("Teacher_Master")
-            records = wks.get_all_records()
-            
-            matched_user = None
-            for row in records:
-                if str(row.get('Email', '')).strip().lower() == email:
-                    matched_user = row
-                    break
-            
-            if matched_user:
-                session.permanent = True
-                session['logged_in'] = True
-                session['email'] = email
-                session['username'] = matched_user.get('Full_Name') or email
-                role_val = str(matched_user.get('Role', '')).strip().lower()
-                session['role'] = 'Teacher' if role_val == 'teacher' else 'Admin'
-                return redirect(url_for('home'))
-            else:
-                error_msg = "Access Denied: Email not registered in Teacher_Master database!"
-                
-        except Exception as e:
-            error_msg = f"Database Error: {str(e)}"
+        email = request.form.get('email', '').strip()
+        password = request.form.get('password', '').strip()
 
-    return render_template('login.html', error=error_msg)
+        if email in STAFF_USERS and STAFF_USERS[email] == password:
+            session['user_email'] = email
+            return redirect('/')
+        else:
+            return render_template('login.html', error="Invalid email or password.")
+    return render_template('login.html')
 
 @app.route('/logout')
 def logout():
     session.clear()
-    return redirect(url_for('login'))
+    return redirect('/login')
+
+# --- Protected Views ---
+@app.route('/')
+def dashboard():
+    if 'user_email' not in session:
+        return redirect('/login')
+    return render_template('dashboard.html', user_email=session['user_email'])
 
 @app.route('/attendance')
-@app.route('/attendance.html')
-@login_required
-def attendance_page():
-    return render_template('attendance.html')
-    
+def attendance():
+    if 'user_email' not in session:
+        return redirect('/login')
+    return render_template('attendence.html')
+
 @app.route('/fees')
-@app.route('/fees.html')
-@login_required
-def fees_page():
-    user_info = {"user_email": session.get('email', session.get('username', 'Staff'))}
-    return render_template('fees.html', user=user_info)
+def fees():
+    if 'user_email' not in session:
+        return redirect('/login')
+    return render_template('fees.html', user={'user_email': session['user_email']})
 
-@app.route('/marks')
-@app.route('/marks.html')
-@login_required
-def marks_page():
-    return render_template('marks.html')
-
-@app.route('/students')
-@app.route('/students.html')
-@login_required
-def students_page():
-    return render_template('students.html')
-
-@app.route('/teacher_portal')
-@app.route('/teacher_portal.html')
-@login_required
-def teacher_portal_page():
-    user_info = {"user_name": session.get('username', 'Teacher')}
-    return render_template('teacher_portal.html', user=user_info)
-
-# --- APIS FOR FRONTEND JS & DASHBOARD ---
-
+# --- API Endpoints ---
 @app.route('/get_classes')
-@app.route('/api/get_classes')
 def get_classes():
-    try:
-        wks = sheet.worksheet("Students")
-        records = wks.get_all_records()
-        classes = sorted(list(set([str(r.get('Class', '')).strip() for r in records if r.get('Class')])))
-        if not classes:
-            classes = [f"Class {i}" for i in range(1, 13)]
-        return jsonify({"classes": classes})
-    except Exception as e:
-        default_classes = [f"Class {i}" for i in range(1, 13)]
-        return jsonify({"classes": default_classes})
+    if 'user_email' not in session:
+        return jsonify({'error': 'Unauthorized'}), 401
+    
+    records = fetch_sheet_records("Students")
+    if not records:
+        # Fallback dummy class list if DB connection unavailable
+        classes = ["Class 9", "Class 10", "Class 11 Science", "Class 12 Science"]
+    else:
+        classes = sorted(list(set(row.get('Class_Name') for row in records if row.get('Class_Name'))))
+    
+    return jsonify({'classes': classes})
 
-@app.route('/get_students/<path:class_name>')
-def get_students_by_class(class_name):
-    try:
-        wks = sheet.worksheet("Students")
-        records = wks.get_all_records()
-        filtered_students = []
-        
-        target = str(class_name).replace("Class", "").strip().lower()
-        
-        for r in records:
-            sheet_cls = str(r.get('Class', '')).strip()
-            sheet_cls_clean = sheet_cls.replace("Class", "").strip().lower()
-            
-            if sheet_cls.lower() == str(class_name).strip().lower() or (target and target == sheet_cls_clean) or (target in sheet_cls_clean):
-                filtered_students.append({
-                    "Student_ID": str(r.get('Student_ID', '')),
-                    "Full_Name": str(r.get('Full_Name', ''))
-                })
-                
-        return jsonify({"students": filtered_students})
-    except Exception as e:
-        return jsonify({"students": []})
+@app.route('/get_students/<class_name>')
+def get_students(class_name):
+    if 'user_email' not in session:
+        return jsonify({'error': 'Unauthorized'}), 401
 
-@app.route('/add_student', methods=['POST'])
-def add_student():
-    try:
-        data = request.get_json(silent=True) or request.form
-        wks = sheet.worksheet("Students")
-        
-        all_vals = [r for r in wks.get_all_values() if any(r)]
-        next_id = f"S{len(all_vals):03d}"
-        
-        name = data.get('full_name') or data.get('name') or data.get('studentName') or ''
-        student_class = data.get('class_name') or data.get('class') or data.get('student_class') or ''
-        contact = data.get('parent_contact') or data.get('contact') or data.get('phone') or ''
-        fee = data.get('monthly_fee') or data.get('fee') or ''
-        joining_date = data.get('joining_date') or datetime.now().strftime("%Y-%m-%d")
-        
-        new_row = [next_id, name, student_class, contact, fee, "Active", joining_date]
-        
-        wks.append_row(new_row, value_input_option='USER_ENTERED')
-        return jsonify({"status": "success", "message": "Student Added Successfully!"})
-    except Exception as e:
-        return jsonify({"status": "error", "message": str(e)}), 500
+    records = fetch_sheet_records("Students")
+    filtered_students = []
+    
+    for row in records:
+        if str(row.get('Class_Name')).strip() == class_name.strip():
+            filtered_students.append({
+                'Student_ID': str(row.get('Student_ID')),
+                'Full_Name': str(row.get('Full_Name'))
+            })
 
-@app.route('/save_fee', methods=['POST'])
-def save_fee():
-    try:
-        data = request.get_json(silent=True) or request.form
-        wks = sheet.worksheet("Fees_Log")
-        
-        all_vals = [r for r in wks.get_all_values() if any(r)]
-        fee_id = f"F{len(all_vals):03d}"
-        
-        now_ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        pay_date = data.get('payment_date') or datetime.now().strftime("%Y-%m-%d")
-        
-        new_row = [
-            fee_id,
-            pay_date,
-            data.get('student_id', ''),
-            data.get('student_name', ''),
-            data.get('class_name', ''),
-            data.get('amount', ''),
-            data.get('for_month', ''),
-            data.get('payment_mode', ''),
-            session.get('email', 'Staff'),
-            now_ts
-        ]
-        
-        wks.append_row(new_row, value_input_option='USER_ENTERED')
-        return jsonify({"status": "success", "message": "Fee Recorded Successfully!"})
-    except Exception as e:
-        return jsonify({"status": "error", "message": str(e)}), 500
+    return jsonify({'students': filtered_students})
 
 @app.route('/save_attendance', methods=['POST'])
 def save_attendance():
+    if 'user_email' not in session:
+        return jsonify({'status': 'error', 'message': 'Unauthorized'}), 401
+
+    data = request.json or {}
+    class_name = data.get('class_name')
+    att_date = data.get('date')
+    attendance_data = data.get('attendance_data', [])
+
+    if not class_name or not attendance_data:
+        return jsonify({'status': 'error', 'message': 'Invalid submission data'}), 400
+
+    client = get_gspread_client()
+    if not client:
+        return jsonify({'status': 'error', 'message': 'Database connection failed'}), 500
+
     try:
-        data = request.get_json(force=True, silent=True) or request.form or {}
-        wks = sheet.worksheet("Attendance_Log")
-        
-        records = (
-            data.get('attendance_data') or 
-            data.get('records') or 
-            data.get('students') or 
-            data.get('data') or 
-            []
-        )
-        
-        if isinstance(data, list):
-            records = data
-            
-        class_name = data.get('class_name') or data.get('className') or data.get('class') or ''
-        att_date = data.get('date') or datetime.now().strftime("%Y-%m-%d")
-        marked_by = session.get('email', 'Teacher')
-        now_ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-
-        if not records:
-            try:
-                raw_body = json.loads(request.data)
-                records = raw_body.get('attendance_data', raw_body.get('records', []))
-            except:
-                pass
-
-        if not records:
-            return jsonify({
-                "status": "error", 
-                "message": "Payload Empty! Browser Refresh (Ctrl+F5) karke dubara try karein."
-            }), 400
-
-        all_vals = [r for r in wks.get_all_values() if any(r)]
-        counter = len(all_vals)
-        
+        sheet = client.open("Ample_Vision_Database").worksheet("Attendance")
         rows_to_append = []
-        for item in records:
-            counter += 1
-            log_id = f"ATT-{att_date.replace('-', '')}-{counter:03d}"
-            
-            s_id = item.get('student_id') or item.get('Student_ID') or item.get('id') or ''
-            s_name = item.get('student_name') or item.get('Student_Name') or item.get('name') or ''
-            status = item.get('status') or item.get('Status') or 'Present'
-            item_cls = item.get('class_name') or item.get('class') or class_name
-            
+        for record in attendance_data:
             rows_to_append.append([
-                log_id, att_date, item_cls, s_id, s_name, status, marked_by, now_ts, "Unlocked"
+                att_date,
+                class_name,
+                record.get('student_id'),
+                record.get('student_name'),
+                record.get('status'),
+                session['user_email'],
+                datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             ])
-            
-        if rows_to_append:
-            wks.append_rows(rows_to_append, value_input_option='USER_ENTERED')
-            return jsonify({"status": "success", "message": f"{len(rows_to_append)} Students ki Attendance save ho gayi!"})
-        else:
-            return jsonify({"status": "error", "message": "No valid rows generated"}), 400
-
-    except Exception as e:
-        return jsonify({"status": "error", "message": str(e)}), 500
-
-@app.route('/save_marks', methods=['POST'])
-def save_marks():
-    try:
-        data = request.get_json(force=True, silent=True) or request.form or {}
-        wks = sheet.worksheet("Marks_Log")
-        
-        class_name = data.get('class_name', '')
-        subject = data.get('subject', '')
-        test_title = data.get('test_title', '')
-        test_date = data.get('test_date', datetime.now().strftime("%Y-%m-%d"))
-        
-        try:
-            total_marks = float(data.get('total_marks', 0))
-        except:
-            total_marks = 0.0
-            
-        teacher_email = session.get('email', data.get('teacher_email', ''))
-        marks_list = data.get('marks_data') or data.get('students') or []
-        now_ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        
-        all_vals = [r for r in wks.get_all_values() if any(r)]
-        counter = len(all_vals)
-        
-        rows_to_append = []
-        for m in marks_list:
-            counter += 1
-            mark_id = f"MRK-{test_date.replace('-', '')}-{counter:03d}"
-            
-            s_id = m.get('student_id') or m.get('Student_ID') or ''
-            s_name = m.get('student_name') or m.get('Student_Name') or ''
-            
-            try:
-                obtained = float(m.get('obtained_marks') or m.get('marks') or 0)
-            except:
-                obtained = 0.0
-                
-            percentage = round((obtained / total_marks) * 100, 2) if total_marks > 0 else 0.0
-            remarks = m.get('remarks') or ''
-            
-            rows_to_append.append([
-                mark_id, test_date, class_name, subject, test_title, s_id, s_name, total_marks, obtained, f"{percentage}%", remarks, teacher_email, now_ts, "Unlocked"
-            ])
-            
-        if rows_to_append:
-            wks.append_rows(rows_to_append, value_input_option='USER_ENTERED')
-            return jsonify({"status": "success", "message": "Marks Uploaded Successfully!"})
-        else:
-            return jsonify({"status": "error", "message": "No marks records received!"}), 400
-
-    except Exception as e:
-        return jsonify({"status": "error", "message": str(e)}), 500
-
-@app.route('/api/admin_summary')
-@login_required
-def admin_summary():
-    try:
-        att_sheet = sheet.worksheet("Attendance_Log")
-        att_records = att_sheet.get_all_records()
-        
-        absent_list = []
-        today_present = 0
-        today_absent = 0
-
-        if att_records:
-            latest_date = str(att_records[-1].get('Date', '')).strip()
-
-            for row in att_records:
-                row_date = str(row.get('Date', '')).strip()
-                if row_date == latest_date:
-                    status = str(row.get('Status', '')).strip().lower()
-                    if status == 'absent':
-                        today_absent += 1
-                        absent_list.append({
-                            'student_id': row.get('Student_ID'),
-                            'name': row.get('Student_Name'),
-                            'class': row.get('Class')
-                        })
-                    elif status == 'present':
-                        today_present += 1
-
-        marks_sheet = sheet.worksheet("Marks_Log")
-        marks_records = marks_sheet.get_all_records()
-        recent_marks = []
-        for row in marks_records[-10:]:
-            recent_marks.append({
-                'date': row.get('Date'),
-                'class': row.get('Class'),
-                'subject': row.get('Subject'),
-                'test_title': row.get('Test_Title'),
-                'name': row.get('Student_Name'),
-                'obtained': row.get('Obtained_Marks'),
-                'total': row.get('Total_Marks')
-            })
-
-        fees_sheet = sheet.worksheet("Fees_Log")
-        fees_records = fees_sheet.get_all_records()
-        recent_fees = []
-        total_collection = 0
-        
-        for row in fees_records:
-            amt = float(str(row.get('Amount_Paid', 0)).replace('₹','').replace(',','').strip() or 0)
-            total_collection += amt
-
-        for row in fees_records[-10:]:
-            recent_fees.append({
-                'date': row.get('Payment_Date'),
-                'name': row.get('Student_Name'),
-                'class': row.get('Class'),
-                'amount': row.get('Amount_Paid'),
-                'mode': row.get('Payment_Mode')
-            })
-
-        return jsonify({
-            'status': 'success',
-            'today_present': today_present,
-            'today_absent': today_absent,
-            'total_collection': total_collection,
-            'absent_students': absent_list,
-            'recent_marks': list(reversed(recent_marks)),
-            'recent_fees': list(reversed(recent_fees))
-        })
+        sheet.append_rows(rows_to_append)
+        return jsonify({'status': 'success', 'message': 'Attendance saved successfully!'})
     except Exception as e:
         return jsonify({'status': 'error', 'message': str(e)}), 500
 
-@app.route('/api/get_teacher_attendance')
-@login_required
-def get_teacher_attendance():
-    try:
-        teacher_sheet = sheet.worksheet("Teacher_Master")
-        records = teacher_sheet.get_all_records()
-        
-        teachers = []
-        for index, row in enumerate(records, start=2):
-            t_id = str(row.get('Teacher_id', '')).strip()
-            t_name = str(row.get('Full_Name', '')).strip()
-            
-            if t_id and t_name:
-                teachers.append({
-                    'row_id': index,
-                    'id': t_id,
-                    'name': t_name,
-                    'role': str(row.get('Role', '')).strip(),
-                    'status': str(row.get('Status', 'Active')).strip()
-                })
-        return jsonify({'status': 'success', 'teachers': teachers})
-    except Exception as e:
-        return jsonify({'status': 'error', 'message': str(e)}), 500
+@app.route('/save_fee', methods=['POST'])
+def save_fee():
+    if 'user_email' not in session:
+        return jsonify({'status': 'error', 'message': 'Unauthorized'}), 401
 
-@app.route('/api/mark_teacher_attendance', methods=['POST'])
-@login_required
-def mark_teacher_attendance():
-    try:
-        data = request.json
-        row_id = data.get('row_id')
-        status = data.get('status')
-        
-        teacher_sheet = sheet.worksheet("Teacher_Master")
-        teacher_sheet.update_cell(row_id, 5, status)
-        
-        t_id = teacher_sheet.cell(row_id, 1).value
-        t_name = teacher_sheet.cell(row_id, 2).value
-        today_date = datetime.now().strftime("%Y-%m-%d")
+    data = request.json or {}
+    student_id = data.get('student_id')
+    student_name = data.get('student_name')
+    class_name = data.get('class_name')
+    amount = data.get('amount')
+    for_month = data.get('for_month')
+    payment_mode = data.get('payment_mode')
+    payment_date = data.get('payment_date')
+    receipt_no = data.get('receipt_no', '')
 
-        try:
-            log_sheet = sheet.worksheet("Teacher_Attendance_Log")
-            log_records = log_sheet.get_all_records()
-            
-            entry_found = False
-            for idx, row in enumerate(log_records, start=2):
-                if str(row.get('Date','')).strip() == today_date and str(row.get('Teacher_ID','')).strip() == str(t_id).strip():
-                    log_sheet.update_cell(idx, 4, status)
-                    entry_found = True
-                    break
-            
-            if not entry_found:
-                log_sheet.append_row([today_date, t_id, t_name, status])
-        except Exception as log_err:
-            print("Teacher_Attendance_Log error:", log_err)
-        
-        return jsonify({'status': 'success', 'message': 'Teacher attendance logged successfully'})
+    client = get_gspread_client()
+    if not client:
+        return jsonify({'status': 'error', 'message': 'Database connection failed'}), 500
+
+    try:
+        sheet = client.open("Ample_Vision_Database").worksheet("Fees")
+        sheet.append_row([
+            payment_date,
+            receipt_no,
+            student_id,
+            student_name,
+            class_name,
+            amount,
+            for_month,
+            payment_mode,
+            session['user_email'],
+            datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        ])
+        return jsonify({'status': 'success', 'message': 'Fee entry recorded successfully!'})
     except Exception as e:
         return jsonify({'status': 'error', 'message': str(e)}), 500
 
