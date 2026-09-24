@@ -11,19 +11,25 @@
 
     <div class="w-full max-w-md bg-slate-800 rounded-2xl p-6 shadow-2xl border border-slate-700 text-center">
         <h2 class="text-2xl font-bold mb-1 text-slate-100">Teacher Attendance Scanner</h2>
-        <p class="text-xs text-slate-400 mb-6">Classroom QR code ko camera ke saamne laayein</p>
+        <p class="text-xs text-slate-400 mb-4">Classroom QR code ko camera ke saamne laayein</p>
 
         <!-- Status Message Box -->
         <div id="status-box" class="hidden mb-4 p-3 rounded-lg text-sm font-semibold transition-all"></div>
+
+        <!-- Re-Login Button (hidden by default) -->
+        <div id="login-btn-container" class="hidden mb-4">
+            <a href="/login" class="inline-block bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-6 rounded-lg shadow-lg transition">
+                Click Here to Login First
+            </a>
+        </div>
 
         <!-- Scanner Reader Box -->
         <div id="reader" class="overflow-hidden rounded-xl border-2 border-dashed border-slate-600 bg-slate-950 min-h-[250px]"></div>
     </div>
 
     <script>
-        // Check email from URL parameter or Flask session
         const urlParams = new URLSearchParams(window.location.search);
-        const loggedInUserEmail = urlParams.get('email') || "{{ session.get('user_email', '') }}";
+        const loggedInUserEmail = urlParams.get('email') || "{{ session.get('email', '') }}";
 
         function showStatus(msg, isError = false) {
             const box = document.getElementById('status-box');
@@ -32,14 +38,17 @@
             box.innerText = msg;
         }
 
-        function onScanSuccess(decodedText) {
-            html5QrcodeScanner.clear();
-            showStatus("Verifying Location & Data...", false);
+        // Session validation check before starting camera
+        if (!loggedInUserEmail) {
+            showStatus("Aap logged in nahi hain! Kripya pehle login karein.", true);
+            document.getElementById('login-btn-container').classList.remove('hidden');
+        } else {
+            let html5QrcodeScanner = new Html5QrcodeScanner("reader", { fps: 10, qrbox: 250 });
+            html5QrcodeScanner.render(onScanSuccess);
+        }
 
-            if (!loggedInUserEmail) {
-                showStatus("Aap logged in nahi hain! Kripya pehle login karein.", true);
-                return;
-            }
+        function onScanSuccess(decodedText) {
+            showStatus("Verifying Location & Data...", false);
 
             if (!navigator.geolocation) {
                 showStatus("Location permissions not supported!", true);
@@ -74,9 +83,6 @@
                 { enableHighAccuracy: true }
             );
         }
-
-        let html5QrcodeScanner = new Html5QrcodeScanner("reader", { fps: 10, qrbox: 250 });
-        html5QrcodeScanner.render(onScanSuccess);
     </script>
 </body>
 </html>
