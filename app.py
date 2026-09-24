@@ -419,38 +419,48 @@ def get_teacher_attendance():
 
 @app.route('/api/mark_teacher_attendance', methods=['POST'])
 @login_required
+@app.route('/api/mark_teacher_attendance', methods=['POST'])
+@login_required
 def mark_teacher_attendance():
     try:
-        data = request.json
+        data = request.json or {}
         row_id = data.get('row_id')
         status = data.get('status')
-        
+
+        if not row_id or not status:
+            return jsonify({'status': 'error', 'message': 'Missing row_id or status'}), 400
+
+        # 1. Update status in Teacher_Master
         teacher_sheet = sheet.worksheet("Teacher_Master")
         teacher_sheet.update_cell(row_id, 5, status)
-        
-        t_id = teacher_sheet.cell(row_id, 1).value
-        t_name = teacher_sheet.cell(row_id, 2).value
+
+        # Fetch Teacher ID and Name (Column 1 and 2)
+        t_id = str(teacher_sheet.cell(row_id, 1).value or '').strip()
+        t_name = str(teacher_sheet.cell(row_id, 2).value or '').strip()
         today_date = datetime.now().strftime("%Y-%m-%d")
 
-        try:
-            log_sheet = sheet.worksheet("Teacher_Attendance_Log")
-            log_records = log_sheet.get_all_records()
-            
-            entry_found = False
-            for idx, row in enumerate(log_records, start=2):
-                if str(row.get('Date','')).strip() == today_date and str(row.get('Teacher_ID','')).strip() == str(t_id).strip():
-                    log_sheet.update_cell(idx, 4, status)
-                    entry_found = True
-                    break
-            
-            if not entry_found:
-                log_sheet.append_row([today_date, t_id, t_name, status])
-        except Exception as log_err:
-            print("Teacher_Attendance_Log error:", log_err)
-        
-        return jsonify({'status': 'success', 'message': 'Teacher attendance logged successfully'})
-    except Exception as e:
-        return jsonify({'status': 'error', 'message': str(e)}), 500
+        # 2. Update or Append in Teacher_Attendance_Log
+        log_sheet = sheet.worksheet("Teacher_Attendance_Log")
+        log_records = log_sheet.get_all_records()
 
-if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000, debug=True)
+        entry_found = False
+        # Checking if attendance for today already exists for this teacher
+        for idx, row in enumerate(log_records, start=2):
+            sheet_date = str(row.get('Date', '')).strip()
+            sheet_tid = str(row.get('Teacher_ID', '')).strip()
+
+            if sheet_date == today_date and sheet_tid == t_id:
+                # Update Status in Column 4 (Status)
+                log_sheet.update_cell(idx, 4, status)
+                entry_found = True
+                break
+
+        # If no entry for today, append new log row
+        if not entry_found:
+            log_sheet.append_row([today_date, t_id, t_name, status])
+
+        return jsonify({'status': 'success', 'message': 'Teacher attendance logged successfully'})
+
+    except Exception as e:
+        print(f"Error in mark_teacher_attendance: {str(e)}")
+        return jsonify({'status': 'error', 'message': str(e)}), 500
