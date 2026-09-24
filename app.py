@@ -521,16 +521,21 @@ def scan_qr_attendance():
             return jsonify({'status': 'error', 'message': 'Aapki Email Teacher Database mein nahi mili!'}), 403
 
         t_sheet = sheet.worksheet("Teacher_Master")
-        t_name = teacher_info.get('Full_Name')
+        t_id = teacher_info.get('Teacher_id', '')
+        t_name = teacher_info.get('Full_Name', '')
 
         # Check Duplicate Entry for Today
         log_sheet = sheet.worksheet("Teacher_Attendance_Log")
         log_records = log_sheet.get_all_records()
-        
+
         for row in log_records:
-            if str(row.get('Date')) == today_date and str(row.get('Teacher_ID')) == str(t_id):
+            if str(row.get('Date')) == today_date and str(row.get('Teacher_id')) == str(t_id):
                 return jsonify({'status': 'error', 'message': 'Aaj ki attendance pehle se logged hai!'}), 400
 
+        # Log Attendance
+        log_sheet.append_row([today_date, t_id, t_name, 'Present'])
+
+        return jsonify({'status': 'success', 'message': f'Attendance marked for {t_name}!'})
         # Log Attendance
         log_sheet.append_row([today_date, t_id, t_name, 'Present'])
         
