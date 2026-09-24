@@ -463,3 +463,62 @@ def mark_teacher_attendance():
     except Exception as e:
         print(f"Error in mark_teacher_attendance: {str(e)}")
         return jsonify({'status': 'error', 'message': str(e)}), 500
+
+# Tuition Center Coordinates (Ahmedabad Location)
+TUITION_LAT = 23.0225 
+TUITION_LON = 72.5714
+
+@app.route('/api/scan_qr_attendance', methods=['POST'])
+@login_required
+def scan_qr_attendance():
+    try:
+        user_email = session.get('user_email')
+        data = request.json or {}
+        
+        user_lat = data.get('lat')
+        user_lon = data.get('lon')
+        
+        if not user_lat or not user_lon:
+            return jsonify({'status': 'error', 'message': 'Location access allow kijiye!'}), 400
+
+        # 1. Location Distance Check (100 Meters Radius)
+        tuition_loc = (TUITION_LAT, TUITION_LON)
+        user_loc = (user_lat, user_lon)
+        distance = geopy.distance.geodesic(tuition_loc, user_loc).meters
+        
+        if distance > 100:
+            return jsonify({'status': 'error', 'message': 'Aap Tuition Center ke bahar hain!'}), 400
+
+        today_date = datetime.now().strftime("%Y-%m-%d")
+        
+        # 2. Get Teacher Info from Teacher_Master
+        t_sheet = sheet.worksheet("Teacher_Master")[cite: 20]
+        teachers = t_sheet.get_all_records()
+        
+        teacher_info = None
+        for row in teachers:
+            if str(row.get('Email', '')).strip().lower() == str(user_email).strip().lower():
+                teacher_info = row
+                break
+                
+        if not teacher_info:
+            return jsonify({'status': 'error', 'message': 'Aapki Email Teacher Database mein nahi mili!'}), 403
+
+        t_id = teacher_info.get('Teacher_id')
+        t_name = teacher_info.get('Full_Name')
+
+        # 3. Prevent Duplicate Entry for Today
+        log_sheet = sheet.worksheet("Teacher_Attendance_Log")[cite: 17, 20]
+        log_records = log_sheet.get_all_records()
+        
+        for row in log_records:
+            if str(row.get('Date')) == today_date and str(row.get('Teacher_ID')) == str(t_id):
+                return jsonify({'status': 'error', 'message': 'Aaj ki attendance pehle se logged hai!'}), 400
+
+        # 4. Save Entry to Google Sheet
+        log_sheet.append_row([today_date, t_id, t_name, 'Present'])[cite: 17, 20]
+        
+        return jsonify({'status': 'success', 'message': f'Attendance marked for {t_name}!'})
+
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': str(e)}), 500
