@@ -485,29 +485,27 @@ def scan_qr_attendance():
 
         user_lat = data.get('lat')
         user_lon = data.get('lon')
-        
-        # Baaki code same rahega...
-        
+
         if not user_lat or not user_lon:
             return jsonify({'status': 'error', 'message': 'Location access allow kijiye!'}), 400
 
         # Check distance from both branches (30 Meters Radius Limit)
         user_loc = (user_lat, user_lon)
         valid_branch = False
-        
+
         for branch in BRANCHES:
             branch_loc = (branch['lat'], branch['lon'])
             distance = geopy.distance.geodesic(branch_loc, user_loc).meters
             if distance <= 30: # Max 30 meters range
                 valid_branch = True
                 break
-        
+
         if not valid_branch:
             return jsonify({'status': 'error', 'message': 'Aap kisi bhi Tuition Branch ke 30m range mein nahi hain!'}), 400
 
-    # IST Timezone ke liye
-       ist = pytz.timezone('Asia/Kolkata')
-       today_date = datetime.now(ist).strftime('%Y-%m-%d')
+        # IST Timezone ke liye
+        ist = pytz.timezone('Asia/Kolkata')
+        today_date = datetime.now(ist).strftime('%Y-%m-%d')
         
         # Get Teacher Info from Teacher_Master
         t_sheet = sheet.worksheet("Teacher_Master")
