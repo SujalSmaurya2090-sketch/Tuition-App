@@ -44,11 +44,12 @@
                     fetch('/api/scan_qr_attendance', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            qr_code: decodedText,
-                            lat: position.coords.latitude,
-                            lon: position.coords.longitude
-                        })
+                       body: JSON.stringify(
+                           qr_code: decodedText,
+                           lat: position.coords.latitude,
+                           lon: position.coords.longitude,
+                           email: "{{ session.get('user_email') }}"
+                           })
                     })
                     .then(res => res.json())
                     .then(data => {
