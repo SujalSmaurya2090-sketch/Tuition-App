@@ -421,6 +421,8 @@ def get_teacher_attendance():
 @login_required
 @app.route('/api/mark_teacher_attendance', methods=['POST'])
 @login_required
+@app.route('/api/mark_teacher_attendance', methods=['POST'])
+@login_required
 def mark_teacher_attendance():
     try:
         data = request.json or {}
@@ -434,12 +436,12 @@ def mark_teacher_attendance():
         teacher_sheet = sheet.worksheet("Teacher_Master")
         teacher_sheet.update_cell(row_id, 5, status)
 
-        # Fetch Teacher ID and Name (Column 1 and 2)
+        # Fetch Teacher ID and Name from Column 1 and Column 2
         t_id = str(teacher_sheet.cell(row_id, 1).value or '').strip()
         t_name = str(teacher_sheet.cell(row_id, 2).value or '').strip()
         today_date = datetime.now().strftime("%Y-%m-%d")
 
-        # 2. Update or Append in Teacher_Attendance_Log
+        # 2. Update or Append entry in Teacher_Attendance_Log
         log_sheet = sheet.worksheet("Teacher_Attendance_Log")
         log_records = log_sheet.get_all_records()
 
@@ -450,12 +452,11 @@ def mark_teacher_attendance():
             sheet_tid = str(row.get('Teacher_ID', '')).strip()
 
             if sheet_date == today_date and sheet_tid == t_id:
-                # Update Status in Column 4 (Status)
                 log_sheet.update_cell(idx, 4, status)
                 entry_found = True
                 break
 
-        # If no entry for today, append new log row
+        # If no entry found for today, append new row
         if not entry_found:
             log_sheet.append_row([today_date, t_id, t_name, status])
 
