@@ -31,6 +31,8 @@
         const urlParams = new URLSearchParams(window.location.search);
         const loggedInUserEmail = urlParams.get('email') || "{{ session.get('email', '') }}";
 
+        let html5QrcodeScanner = null;
+
         function showStatus(msg, isError = false) {
             const box = document.getElementById('status-box');
             box.classList.remove('hidden', 'bg-emerald-500/20', 'text-emerald-400', 'bg-rose-500/20', 'text-rose-400');
@@ -38,16 +40,22 @@
             box.innerText = msg;
         }
 
-        // Session validation check before starting camera
         if (!loggedInUserEmail) {
             showStatus("Aap logged in nahi hain! Kripya pehle login karein.", true);
             document.getElementById('login-btn-container').classList.remove('hidden');
         } else {
-            let html5QrcodeScanner = new Html5QrcodeScanner("reader", { fps: 10, qrbox: 250 });
+            html5QrcodeScanner = new Html5QrcodeScanner("reader", { fps: 10, qrbox: 250 });
             html5QrcodeScanner.render(onScanSuccess);
         }
 
         function onScanSuccess(decodedText) {
+            // Stop repeated scanning immediately
+            if (html5QrcodeScanner) {
+                try {
+                    html5QrcodeScanner.pause(true);
+                } catch(e) {}
+            }
+
             showStatus("Verifying Location & Data...", false);
 
             if (!navigator.geolocation) {
@@ -73,12 +81,24 @@
                             showStatus(data.message, false);
                         } else {
                             showStatus(data.message, true);
+                            // Resume scanner on error if needed
+                            setTimeout(() => {
+                                if (html5QrcodeScanner) html5QrcodeScanner.resume();
+                            }, 3000);
                         }
                     })
-                    .catch(err => showStatus("Network Error!", true));
+                    .catch(err => {
+                        showStatus("Network Error!", true);
+                        setTimeout(() => {
+                            if (html5QrcodeScanner) html5QrcodeScanner.resume();
+                        }, 3000);
+                    });
                 },
                 (error) => {
                     showStatus("Please allow Location Access to mark attendance!", true);
+                    setTimeout(() => {
+                        if (html5QrcodeScanner) html5QrcodeScanner.resume();
+                    }, 3000);
                 },
                 { enableHighAccuracy: true }
             );
