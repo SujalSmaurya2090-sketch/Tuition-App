@@ -466,8 +466,8 @@ def mark_teacher_attendance():
 
 # Multiple Tuition Branches (Coordinates: Latitude, Longitude)
 BRANCHES = [
-    {"name": "Branch 1", "lat": 23.0225, "lon": 72.5714},  # Branch 1 Coordinates
-    {"name": "Branch 2", "lat": 23.0300, "lon": 72.5800}   # Branch 2 Coordinates
+    {"name": "Branch 1", "lat": 22.9985473, "lon": 72.6435501},  # Branch 1 Coordinates
+    {"name": "Branch 2", "lat": 23.001270, "lon": 72.627132}   # Branch 2 Coordinates
 ]
 
 @app.route('/api/scan_qr_attendance', methods=['POST'])
