@@ -419,10 +419,7 @@ def get_teacher_attendance():
 
 @app.route('/api/mark_teacher_attendance', methods=['POST'])
 @login_required
-@app.route('/api/mark_teacher_attendance', methods=['POST'])
-@login_required
-@app.route('/api/mark_teacher_attendance', methods=['POST'])
-@login_required
+
 def mark_teacher_attendance():
     try:
         data = request.json or {}
