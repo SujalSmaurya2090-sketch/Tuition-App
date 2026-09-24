@@ -464,9 +464,11 @@ def mark_teacher_attendance():
         print(f"Error in mark_teacher_attendance: {str(e)}")
         return jsonify({'status': 'error', 'message': str(e)}), 500
 
-# Tuition Center Coordinates (Ahmedabad Location)
-TUITION_LAT = 23.0225 
-TUITION_LON = 72.5714
+# Multiple Tuition Branches (Coordinates: Latitude, Longitude)
+BRANCHES = [
+    {"name": "Branch 1", "lat": 23.0225, "lon": 72.5714},  # Branch 1 Coordinates
+    {"name": "Branch 2", "lat": 23.0300, "lon": 72.5800}   # Branch 2 Coordinates
+]
 
 @app.route('/api/scan_qr_attendance', methods=['POST'])
 @login_required
@@ -481,18 +483,24 @@ def scan_qr_attendance():
         if not user_lat or not user_lon:
             return jsonify({'status': 'error', 'message': 'Location access allow kijiye!'}), 400
 
-        # 1. Location Distance Check (100 Meters Radius)
-        tuition_loc = (TUITION_LAT, TUITION_LON)
+        # Check distance from both branches (30 Meters Radius Limit)
         user_loc = (user_lat, user_lon)
-        distance = geopy.distance.geodesic(tuition_loc, user_loc).meters
+        valid_branch = False
         
-        if distance > 100:
-            return jsonify({'status': 'error', 'message': 'Aap Tuition Center ke bahar hain!'}), 400
+        for branch in BRANCHES:
+            branch_loc = (branch['lat'], branch['lon'])
+            distance = geopy.distance.geodesic(branch_loc, user_loc).meters
+            if distance <= 30: # Max 30 meters range
+                valid_branch = True
+                break
+        
+        if not valid_branch:
+            return jsonify({'status': 'error', 'message': 'Aap kisi bhi Tuition Branch ke 30m range mein nahi hain!'}), 400
 
         today_date = datetime.now().strftime("%Y-%m-%d")
         
-        # 2. Get Teacher Info from Teacher_Master
-        t_sheet = sheet.worksheet("Teacher_Master")[cite: 20]
+        # Get Teacher Info from Teacher_Master
+        t_sheet = sheet.worksheet("Teacher_Master")[cite: 23]
         teachers = t_sheet.get_all_records()
         
         teacher_info = None
@@ -504,21 +512,27 @@ def scan_qr_attendance():
         if not teacher_info:
             return jsonify({'status': 'error', 'message': 'Aapki Email Teacher Database mein nahi mili!'}), 403
 
-        t_id = teacher_info.get('Teacher_id')
-        t_name = teacher_info.get('Full_Name')
+        t_id = teacher_info.get('Teacher_id')[cite: 23]
+        t_name = teacher_info.get('Full_Name')[cite: 23]
 
-        # 3. Prevent Duplicate Entry for Today
-        log_sheet = sheet.worksheet("Teacher_Attendance_Log")[cite: 17, 20]
+        # Check Duplicate Entry for Today
+        log_sheet = sheet.worksheet("Teacher_Attendance_Log")
         log_records = log_sheet.get_all_records()
         
         for row in log_records:
             if str(row.get('Date')) == today_date and str(row.get('Teacher_ID')) == str(t_id):
                 return jsonify({'status': 'error', 'message': 'Aaj ki attendance pehle se logged hai!'}), 400
 
-        # 4. Save Entry to Google Sheet
-        log_sheet.append_row([today_date, t_id, t_name, 'Present'])[cite: 17, 20]
+        # Log Attendance
+        log_sheet.append_row([today_date, t_id, t_name, 'Present'])
         
         return jsonify({'status': 'success', 'message': f'Attendance marked for {t_name}!'})
 
     except Exception as e:
         return jsonify({'status': 'error', 'message': str(e)}), 500
+
+# Scanner Page View Route
+@app.route('/scan')
+@login_required
+def scan_page():
+    return render_template('scan.html')
