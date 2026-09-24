@@ -473,13 +473,15 @@ BRANCHES = [
 @app.route('/api/scan_qr_attendance', methods=['POST'])
 def scan_qr_attendance():
     try:
-        user_email = session.get('user_email')
+        data = request.json or {}
+        
+        # Session se 'email' padhein, ya JSON body se lein
+        user_email = session.get('email') or data.get('email')
         
         # Session check
         if not user_email:
             return jsonify({'status': 'error', 'message': 'Aap logged in nahi hain! Kripya pehle login karein.'}), 401
 
-        data = request.json or {}
         user_lat = data.get('lat')
         user_lon = data.get('lon')
         
