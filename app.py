@@ -5,6 +5,7 @@ import os
 from datetime import datetime, timedelta
 from functools import wraps
 import json
+import geopy.distance
 
 # 1. Initialize Flask App once
 app = Flask(__name__)
