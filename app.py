@@ -504,6 +504,7 @@ def scan_qr_attendance():
         teachers = t_sheet.get_all_records()
         
         teacher_info = None
+        print(f"DEBUG: Session Email = '{user_email}'")
         for row in teachers:
             if str(row.get('Email', '')).strip().lower() == str(user_email).strip().lower():
                 teacher_info = row
