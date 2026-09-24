@@ -6,6 +6,7 @@ from datetime import datetime, timedelta
 from functools import wraps
 import json
 import geopy.distance
+import pytz
 
 # 1. Initialize Flask App once
 app = Flask(__name__)
@@ -504,7 +505,9 @@ def scan_qr_attendance():
         if not valid_branch:
             return jsonify({'status': 'error', 'message': 'Aap kisi bhi Tuition Branch ke 30m range mein nahi hain!'}), 400
 
-        today_date = datetime.now().strftime("%Y-%m-%d")
+    # IST Timezone ke liye
+       ist = pytz.timezone('Asia/Kolkata')
+       today_date = datetime.now(ist).strftime('%Y-%m-%d')
         
         # Get Teacher Info from Teacher_Master
         t_sheet = sheet.worksheet("Teacher_Master")
