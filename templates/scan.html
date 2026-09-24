@@ -3,24 +3,27 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Scan Attendance - Ample Vision</title>
+    <title>Scan Attendance - AMPLE VISION</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/html5-qrcode"></script>
 </head>
-<body class="bg-slate-900 min-h-screen text-white flex flex-col items-center justify-center p-4">
+<body class="bg-slate-900 text-white min-h-screen flex flex-col items-center justify-center p-4">
 
-    <div class="max-w-md w-full bg-slate-800 rounded-2xl p-6 shadow-xl border border-slate-700 text-center">
-        <h2 class="text-xl font-bold mb-1">Teacher Attendance Scanner</h2>
-        <p class="text-xs text-slate-400 mb-4">Classroom QR code ko camera ke saamne laayein</p>
+    <div class="w-full max-w-md bg-slate-800 rounded-2xl p-6 shadow-2xl border border-slate-700 text-center">
+        <h2 class="text-2xl font-bold mb-1 text-slate-100">Teacher Attendance Scanner</h2>
+        <p class="text-xs text-slate-400 mb-6">Classroom QR code ko camera ke saamne laayein</p>
 
-        <!-- Camera Container -->
-        <div id="reader" class="overflow-hidden rounded-xl bg-black border-2 border-indigo-500 mb-4"></div>
+        <!-- Status Message Box -->
+        <div id="status-box" class="hidden mb-4 p-3 rounded-lg text-sm font-semibold transition-all"></div>
 
-        <div id="status-box" class="hidden p-3 rounded-xl text-sm font-semibold"></div>
-        <a href="https://tuition-app-uv3y.onrender.com">Click to Login</a>
+        <!-- Scanner Reader Box -->
+        <div id="reader" class="overflow-hidden rounded-xl border-2 border-dashed border-slate-600 bg-slate-950 min-h-[250px]"></div>
     </div>
 
     <script>
+        // Logged in email from Flask session
+        const loggedInUserEmail = "{{ session.get('user_email', '') }}";
+
         function showStatus(msg, isError = false) {
             const box = document.getElementById('status-box');
             box.classList.remove('hidden', 'bg-emerald-500/20', 'text-emerald-400', 'bg-rose-500/20', 'text-rose-400');
@@ -29,7 +32,6 @@
         }
 
         function onScanSuccess(decodedText) {
-            // Pause Scanner after first scan
             html5QrcodeScanner.clear();
             showStatus("Verifying Location & Data...", false);
 
@@ -38,22 +40,21 @@
                 return;
             }
 
-            // Get GPS Location & Submit
             navigator.geolocation.getCurrentPosition(
                 (position) => {
                     fetch('/api/scan_qr_attendance', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                       body: JSON.stringify(
-                           qr_code: decodedText,
-                           lat: position.coords.latitude,
-                           lon: position.coords.longitude,
-                           email: "{{ session.get('user_email') }}"
-                           })
+                        body: JSON.stringify({
+                            qr_code: decodedText,
+                            lat: position.coords.latitude,
+                            lon: position.coords.longitude,
+                            email: loggedInUserEmail
+                        })
                     })
                     .then(res => res.json())
                     .then(data => {
-                        if(data.status === 'success') {
+                        if (data.status === 'success') {
                             showStatus(data.message, false);
                         } else {
                             showStatus(data.message, true);
