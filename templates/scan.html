@@ -21,8 +21,9 @@
     </div>
 
     <script>
-        // Logged in email from Flask session
-        const loggedInUserEmail = "{{ session.get('user_email', '') }}";
+        // Check email from URL parameter or Flask session
+        const urlParams = new URLSearchParams(window.location.search);
+        const loggedInUserEmail = urlParams.get('email') || "{{ session.get('user_email', '') }}";
 
         function showStatus(msg, isError = false) {
             const box = document.getElementById('status-box');
@@ -34,6 +35,11 @@
         function onScanSuccess(decodedText) {
             html5QrcodeScanner.clear();
             showStatus("Verifying Location & Data...", false);
+
+            if (!loggedInUserEmail) {
+                showStatus("Aap logged in nahi hain! Kripya pehle login karein.", true);
+                return;
+            }
 
             if (!navigator.geolocation) {
                 showStatus("Location permissions not supported!", true);
