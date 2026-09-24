@@ -500,7 +500,7 @@ def scan_qr_attendance():
         today_date = datetime.now().strftime("%Y-%m-%d")
         
         # Get Teacher Info from Teacher_Master
-        t_sheet = sheet.worksheet("Teacher_Master")[cite: 23]
+        t_sheet = sheet.worksheet("Teacher_Master")
         teachers = t_sheet.get_all_records()
         
         teacher_info = None
@@ -512,8 +512,8 @@ def scan_qr_attendance():
         if not teacher_info:
             return jsonify({'status': 'error', 'message': 'Aapki Email Teacher Database mein nahi mili!'}), 403
 
-        t_id = teacher_info.get('Teacher_id')[cite: 23]
-        t_name = teacher_info.get('Full_Name')[cite: 23]
+        t_id = teacher_info.get('Teacher_id')
+        t_name = teacher_info.get('Full_Name')
 
         # Check Duplicate Entry for Today
         log_sheet = sheet.worksheet("Teacher_Attendance_Log")
