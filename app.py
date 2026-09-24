@@ -512,7 +512,7 @@ def scan_qr_attendance():
         if not teacher_info:
             return jsonify({'status': 'error', 'message': 'Aapki Email Teacher Database mein nahi mili!'}), 403
 
-        t_sheet = sheet.worksheet("Teacher Master")
+        t_sheet = sheet.worksheet("Teacher_Master")
         t_name = teacher_info.get('Full_Name')
 
         # Check Duplicate Entry for Today
