@@ -506,6 +506,8 @@ def scan_qr_attendance():
         # IST Timezone ke liye
         ist = pytz.timezone('Asia/Kolkata')
         today_date = datetime.now(ist).strftime('%Y-%m-%d')
+        now_ist = datetime.now(ist)
+        current_time = now_ist.strftime('%I:%M:%S %p') # E.g. 05:30:15 PM
         
         # Get Teacher Info from Teacher_Master
         t_sheet = sheet.worksheet("Teacher_Master")
