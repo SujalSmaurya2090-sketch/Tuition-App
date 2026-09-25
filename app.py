@@ -535,13 +535,20 @@ def scan_qr_attendance():
             if str(row.get('Date')) == today_date and str(row.get('Teacher_id')) == str(t_id):
                 return jsonify({'status': 'error', 'message': 'Aaj ki attendance pehle se logged hai!'}), 400
 
-        # Log Attendance
-        log_sheet.append_row([today_date, t_id, t_name, 'Present'])
+      # Check Duplicate Entry for Today
+        log_sheet = sheet.worksheet("Teacher_Attendance_Log")
+        log_records = log_sheet.get_all_records()
 
-        return jsonify({'status': 'success', 'message': f'Attendance marked for {t_name}!'})
-        # Log Attendance
-        log_sheet.append_row([today_date, t_id, t_name, 'Present'])
-        
+        already_marked = False
+        for row in log_records:
+            if str(row.get('Date')) == today_date and str(row.get('Teacher_Id')) == str(t_id):
+                already_marked = True
+                break
+
+        if not already_marked:
+            # Sheet Column order: Date, Teacher_ID, Teacher_Name, Time, Status
+            log_sheet.append_row([today_date, t_id, t_name, current_time, 'Present'])
+
         return jsonify({'status': 'success', 'message': f'Attendance marked for {t_name}!'})
 
     except Exception as e:
