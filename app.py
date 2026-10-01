@@ -500,79 +500,131 @@ BRANCHES = [
 ]
 
 @app.route('/api/scan_qr_attendance', methods=['POST'])
-@login_required
 def scan_qr_attendance():
     try:
         data = request.json or {}
-        
-        # Session se 'email' padhein, ya JSON body se lein
-        user_email = session.get('email') or data.get('email')
-        
-        # Session check
-        if not user_email:
-            return jsonify({'status': 'error', 'message': 'Aap logged in nahi hain! Kripya pehle login karein.'}), 401
 
+        # Logged-in teacher ka email
+        user_email = session.get('email') or data.get('email')
+
+        if not user_email:
+            return jsonify({
+                'status': 'error',
+                'message': 'Aap logged in nahi hain! Kripya pehle login karein.'
+            }), 401
+
+        # Location
         user_lat = data.get('lat')
         user_lon = data.get('lon')
 
-        if not user_lat or not user_lon:
-            return jsonify({'status': 'error', 'message': 'Location access allow kijiye!'}), 400
+        if user_lat is None or user_lon is None:
+            return jsonify({
+                'status': 'error',
+                'message': 'Location access allow kijiye!'
+            }), 400
 
-        # Check distance from both branches (30 Meters Radius Limit)
+        # Check branch location
         user_loc = (user_lat, user_lon)
         valid_branch = False
 
         for branch in BRANCHES:
             branch_loc = (branch['lat'], branch['lon'])
-            distance = geopy.distance.geodesic(branch_loc, user_loc).meters
-            if distance <= 30: # Max 30 meters range
+            distance = geopy.distance.geodesic(
+                branch_loc,
+                user_loc
+            ).meters
+
+            if distance <= 30:
                 valid_branch = True
                 break
 
         if not valid_branch:
-            return jsonify({'status': 'error', 'message': 'Aap kisi bhi Tuition Branch ke 30m range mein nahi hain!'}), 400
+            return jsonify({
+                'status': 'error',
+                'message': 'Aap kisi bhi Tuition Branch ke 30m range mein nahi hain!'
+            }), 400
 
-        # IST Timezone ke liye
+        # IST date and time
         ist = pytz.timezone('Asia/Kolkata')
-        today_date = datetime.now(ist).strftime('%Y-%m-%d')
         now_ist = datetime.now(ist)
-        current_time = now_ist.strftime('%I:%M:%S %p') # E.g. 05:30:15 PM
-        
-        # Get Teacher Info from Teacher_Master
-        t_sheet = sheet.worksheet("Teacher_Master")
-        teachers = t_sheet.get_all_records()
-        
+
+        today_date = now_ist.strftime('%Y-%m-%d')
+        current_time = now_ist.strftime('%I:%M:%S %p')
+
+        # Find teacher from Teacher_Master
+        teacher_sheet = sheet.worksheet("Teacher_Master")
+        teachers = teacher_sheet.get_all_records()
+
         teacher_info = None
-        print(f"DEBUG: Session Email = '{user_email}'")
+
         for row in teachers:
-            if str(row.get('Email', '')).strip().lower() == str(user_email).strip().lower():
+            row_email = str(row.get('Email', '')).strip().lower()
+
+            if row_email == str(user_email).strip().lower():
                 teacher_info = row
                 break
-                
+
         if not teacher_info:
-            return jsonify({'status': 'error', 'message': 'Aapki Email Teacher Database mein nahi mili!'}), 403
+            return jsonify({
+                'status': 'error',
+                'message': 'Aapki Email Teacher Database mein nahi mili!'
+            }), 403
 
-        t_sheet = sheet.worksheet("Teacher_Master")
-        t_id = teacher_info.get('Teacher_id', '')
-        t_name = teacher_info.get('Full_Name', '')
+        t_id = str(teacher_info.get('Teacher_id', '')).strip()
+        t_name = str(teacher_info.get('Full_Name', '')).strip()
 
-       # Check Duplicate Entry for Today
+        if not t_id or not t_name:
+            return jsonify({
+                'status': 'error',
+                'message': 'Teacher ID ya Teacher Name missing hai!'
+            }), 400
+
+        # Teacher Attendance Log
         log_sheet = sheet.worksheet("Teacher_Attendance_Log")
         log_records = log_sheet.get_all_records()
 
-        already_marked = False
+        # Check if this teacher has already scanned today
         for row in log_records:
-            if str(row.get('Date', '')).strip() == today_date and str(row.get('Teacher_ID', row.get('Teacher_Id', ''))).strip() == str(t_id).strip():
-                already_marked = True
-                break
 
-        if not already_marked:
-            # Sheet Column order: Date, Teacher_ID, Teacher_Name, Time, Status
-            log_sheet.append_row([today_date, t_id, t_name, current_time, 'Present'])
+            sheet_date = str(row.get('Date', '')).strip()
 
-        return jsonify({'status': 'success', 'message': f'Attendance marked for {t_name}!'})
+            # Correct column name: Teacher_ID
+            sheet_teacher_id = str(
+                row.get('Teacher_ID', '')
+            ).strip()
+
+            if (
+                sheet_date == today_date
+                and sheet_teacher_id == t_id
+            ):
+                return jsonify({
+                    'status': 'success',
+                    'already_marked': True,
+                    'message': f'{t_name}, aaj ki attendance already Present hai.'
+                })
+
+        # No attendance found today → create ONE entry
+        log_sheet.append_row([
+            today_date,
+            t_id,
+            t_name,
+            current_time,
+            'Present'
+        ])
+
+        return jsonify({
+            'status': 'success',
+            'already_marked': False,
+            'message': f'Attendance marked Present for {t_name}!'
+        })
+
     except Exception as e:
-        return jsonify({'status': 'error', 'message': str(e)}), 500
+        print(f"Error in scan_qr_attendance: {str(e)}")
+
+        return jsonify({
+            'status': 'error',
+            'message': str(e)
+        }), 500
 
 # Scanner Page View Route
 @app.route('/scan')
