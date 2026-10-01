@@ -123,6 +123,7 @@ def teacher_portal_page():
 
 @app.route('/get_classes')
 @app.route('/api/get_classes')
+@login_required
 def get_classes():
     try:
         wks = sheet.worksheet("Students")
@@ -136,6 +137,7 @@ def get_classes():
         return jsonify({"classes": default_classes})
 
 @app.route('/get_students/<path:class_name>')
+@login_required
 def get_students_by_class(class_name):
     try:
         wks = sheet.worksheet("Students")
@@ -159,6 +161,7 @@ def get_students_by_class(class_name):
         return jsonify({"students": []})
 
 @app.route('/add_student', methods=['POST'])
+@login_required
 def add_student():
     try:
         data = request.get_json(silent=True) or request.form
@@ -181,6 +184,7 @@ def add_student():
         return jsonify({"status": "error", "message": str(e)}), 500
 
 @app.route('/save_fee', methods=['POST'])
+@login_required
 def save_fee():
     try:
         data = request.get_json(silent=True) or request.form
@@ -211,6 +215,7 @@ def save_fee():
         return jsonify({"status": "error", "message": str(e)}), 500
 
 @app.route('/save_attendance', methods=['POST'])
+@login_required
 def save_attendance():
     try:
         data = request.get_json(force=True, silent=True) or request.form or {}
@@ -272,6 +277,7 @@ def save_attendance():
         return jsonify({"status": "error", "message": str(e)}), 500
 
 @app.route('/save_marks', methods=['POST'])
+@login_required
 def save_marks():
     try:
         data = request.get_json(force=True, silent=True) or request.form or {}
@@ -472,6 +478,7 @@ BRANCHES = [
 ]
 
 @app.route('/api/scan_qr_attendance', methods=['POST'])
+@login_required
 def scan_qr_attendance():
     try:
         data = request.json or {}
