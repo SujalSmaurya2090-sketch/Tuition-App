@@ -540,7 +540,7 @@ def scan_qr_attendance():
 
         already_marked = False
         for row in log_records:
-            if str(row.get('Date')) == today_date and str(row.get('Teacher_Id')) == str(t_id):
+            if str(row.get('Date', '')).strip() == today_date and str(row.get('Teacher_ID', row.get('Teacher_Id', ''))).strip() == str(t_id).strip():
                 already_marked = True
                 break
 
