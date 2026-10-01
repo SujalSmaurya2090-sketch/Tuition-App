@@ -427,25 +427,69 @@ def admin_summary():
 @login_required
 def get_teacher_attendance():
     try:
+        # Teacher Master se sabhi teachers
         teacher_sheet = sheet.worksheet("Teacher_Master")
-        records = teacher_sheet.get_all_records()
-        
+        teacher_records = teacher_sheet.get_all_records()
+
+        # Teacher Attendance Log
+        log_sheet = sheet.worksheet("Teacher_Attendance_Log")
+        log_records = log_sheet.get_all_records()
+
+        # IST mein aaj ki date
+        ist = pytz.timezone('Asia/Kolkata')
+        now_ist = datetime.now(ist)
+        today_date = now_ist.strftime('%Y-%m-%d')
+
+        # Aaj present/absent marked teachers ka record
+        today_attendance = {}
+
+        for log_row in log_records:
+            log_date = str(log_row.get('Date', '')).strip()
+            log_teacher_id = str(
+                log_row.get('Teacher_ID', '')
+            ).strip()
+
+            if log_date == today_date and log_teacher_id:
+                today_attendance[log_teacher_id] = str(
+                    log_row.get('Status', 'Present')
+                ).strip()
+
+        # Final teacher list
         teachers = []
-        for index, row in enumerate(records, start=2):
+
+        for index, row in enumerate(teacher_records, start=2):
             t_id = str(row.get('Teacher_id', '')).strip()
             t_name = str(row.get('Full_Name', '')).strip()
-            
+
             if t_id and t_name:
+
+                # Aaj attendance log mein entry hai?
+                if t_id in today_attendance:
+                    attendance_status = today_attendance[t_id]
+                else:
+                    # Aaj scan/attendance entry nahi hai
+                    attendance_status = 'Absent'
+
                 teachers.append({
                     'row_id': index,
                     'id': t_id,
                     'name': t_name,
                     'role': str(row.get('Role', '')).strip(),
-                    'status': str(row.get('Status', 'Active')).strip()
+                    'status': attendance_status
                 })
-        return jsonify({'status': 'success', 'teachers': teachers})
+
+        return jsonify({
+            'status': 'success',
+            'teachers': teachers
+        })
+
     except Exception as e:
-        return jsonify({'status': 'error', 'message': str(e)}), 500
+        print(f"Error in get_teacher_attendance: {str(e)}")
+
+        return jsonify({
+            'status': 'error',
+            'message': str(e)
+        }), 500
 
 @app.route('/api/mark_teacher_attendance', methods=['POST'])
 @login_required
