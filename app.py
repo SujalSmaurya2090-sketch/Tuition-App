@@ -39,6 +39,21 @@ def login_required(f):
             return redirect(url_for('login'))
         return f(*args, **kwargs)
     return decorated_function
+    def role_required(*allowed_roles):
+    def decorator(f):
+        @wraps(f)
+        def decorated_function(*args, **kwargs):
+            if 'logged_in' not in session:
+                return redirect(url_for('login'))
+
+            user_role = session.get('role', '').strip()
+
+            if user_role not in allowed_roles:
+                return render_template('unauthorized.html'), 403
+
+            return f(*args, **kwargs)
+        return decorated_function
+    return decorator
 
 # --- PAGE ROUTES ---
 
