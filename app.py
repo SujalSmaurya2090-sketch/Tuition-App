@@ -1301,6 +1301,136 @@ def mark_teacher_attendance():
             'message': str(e)
         }), 500
 
+@app.route('/api/teacher/my_classes')
+@login_required
+def teacher_my_classes():
+    try:
+        user_email = str(
+            session.get('email', '')
+        ).strip().lower()
+
+        if not user_email:
+            return jsonify({
+                'status': 'error',
+                'message': 'Teacher login required'
+            }), 401
+
+        # Teacher_Master se logged-in teacher ki details
+        teacher_sheet = sheet.worksheet("Teacher_Master")
+        teachers = teacher_sheet.get_all_records()
+
+        teacher_info = None
+
+        for row in teachers:
+            row_email = str(
+                row.get('Email', '')
+            ).strip().lower()
+
+            if row_email == user_email:
+                teacher_info = row
+                break
+
+        if not teacher_info:
+            return jsonify({
+                'status': 'error',
+                'message': 'Teacher record not found'
+            }), 404
+
+        teacher_id = str(
+            teacher_info.get('Teacher_id', '')
+        ).strip()
+
+        if not teacher_id:
+            return jsonify({
+                'status': 'error',
+                'message': 'Teacher ID missing'
+            }), 400
+
+        # Teacher_Assignments sheet
+        assignment_sheet = sheet.worksheet(
+            "Teacher_Assignments"
+        )
+
+        assignments = (
+            assignment_sheet.get_all_records()
+        )
+
+        my_classes = []
+
+        for row in assignments:
+
+            row_teacher_id = str(
+                row.get('Teacher_Id', '')
+            ).strip()
+
+            status = str(
+                row.get('Status', 'Active')
+            ).strip().lower()
+
+            if (
+                row_teacher_id == teacher_id
+                and status == 'active'
+            ):
+                my_classes.append({
+                    'assignment_id': str(
+                        row.get(
+                            'Assignment_ID',
+                            ''
+                        )
+                    ).strip(),
+
+                    'branch': str(
+                        row.get(
+                            'Branch',
+                            ''
+                        )
+                    ).strip(),
+
+                    'class': str(
+                        row.get(
+                            'Class',
+                            ''
+                        )
+                    ).strip(),
+
+                    'medium': str(
+                        row.get(
+                            'Medium',
+                            ''
+                        )
+                    ).strip(),
+
+                    'subject': str(
+                        row.get(
+                            'Subject',
+                            ''
+                        )
+                    ).strip()
+                })
+
+        return jsonify({
+            'status': 'success',
+            'teacher_id': teacher_id,
+            'teacher_name': str(
+                teacher_info.get(
+                    'Full_Name',
+                    ''
+                )
+            ).strip(),
+            'classes': my_classes
+        })
+
+    except Exception as e:
+
+        print(
+            f"Error in teacher_my_classes: {str(e)}"
+        )
+
+        return jsonify({
+            'status': 'error',
+            'message': str(e)
+        }), 500
+
 
 # --------------------------------------------------
 # MULTIPLE TUITION BRANCHES
