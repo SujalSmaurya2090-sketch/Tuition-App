@@ -1163,107 +1163,75 @@ def get_teacher_attendance():
         }), 500
 
 
-@app.route(
-    '/api/mark_teacher_attendance',
-    methods=['POST']
-)
+@app.route('/api/mark_teacher_attendance', methods=['POST'])
 @login_required
 def mark_teacher_attendance():
-
     try:
+        # Only Admin can manually change teacher attendance
+        if session.get('role') != 'Admin':
+            return jsonify({
+                'status': 'error',
+                'message': 'Sirf Admin teacher attendance change kar sakta hai.'
+            }), 403
 
         data = request.json or {}
 
-        row_id = data.get(
-            'row_id'
-        )
+        row_id = data.get('row_id')
+        status = str(data.get('status', '')).strip().title()
 
-        status = data.get(
-            'status'
-        )
-
-        if not row_id or not status:
-
+        if not row_id or status not in ['Present', 'Absent']:
             return jsonify({
                 'status': 'error',
-                'message':
-                    'Missing row_id or status'
+                'message': 'Invalid row_id ya attendance status.'
             }), 400
 
-        # 1. Update status in Teacher_Master
-        teacher_sheet = sheet.worksheet(
-            "Teacher_Master"
-        )
+        # Teacher Master
+        teacher_sheet = sheet.worksheet("Teacher_Master")
 
-        teacher_sheet.update_cell(
-            row_id,
-            5,
-            status
-        )
-
-        # Teacher ID and Name
+        # Get teacher information
         t_id = str(
-            teacher_sheet.cell(
-                row_id,
-                1
-            ).value or ''
+            teacher_sheet.cell(int(row_id), 1).value or ''
         ).strip()
 
         t_name = str(
-            teacher_sheet.cell(
-                row_id,
-                2
-            ).value or ''
+            teacher_sheet.cell(int(row_id), 2).value or ''
         ).strip()
 
+        if not t_id or not t_name:
+            return jsonify({
+                'status': 'error',
+                'message': 'Teacher ID ya Teacher Name nahi mila.'
+            }), 404
+
         # IST date
-        ist = pytz.timezone(
-            'Asia/Kolkata'
-        )
+        ist = pytz.timezone('Asia/Kolkata')
+        now_ist = datetime.now(ist)
 
-        today_date = datetime.now(
-            ist
-        ).strftime(
-            "%Y-%m-%d"
-        )
+        today_date = now_ist.strftime('%Y-%m-%d')
+        current_time = now_ist.strftime('%I:%M:%S %p')
 
-        # 2. Update or Append entry
-        log_sheet = sheet.worksheet(
-            "Teacher_Attendance_Log"
-        )
-
-        log_records = (
-            log_sheet.get_all_records()
-        )
+        # Teacher Attendance Log
+        log_sheet = sheet.worksheet("Teacher_Attendance_Log")
+        log_records = log_sheet.get_all_records()
 
         entry_found = False
 
-        # Checking today's attendance
-        for idx, row in enumerate(
-            log_records,
-            start=2
-        ):
+        # Find today's attendance for this teacher
+        for idx, row in enumerate(log_records, start=2):
 
             sheet_date = str(
-                row.get(
-                    'Date',
-                    ''
-                )
+                row.get('Date', '')
             ).strip()
 
             sheet_tid = str(
-                row.get(
-                    'Teacher_ID',
-                    ''
-                )
+                row.get('Teacher_ID', '')
             ).strip()
 
             if (
                 sheet_date == today_date
                 and sheet_tid == t_id
             ):
-
-                # Status is column E
+                # Update ONLY today's attendance row
                 log_sheet.update_cell(
                     idx,
                     5,
@@ -1273,25 +1241,26 @@ def mark_teacher_attendance():
                 entry_found = True
                 break
 
-        # If no entry found
+        # No entry today → create one
         if not entry_found:
-
             log_sheet.append_row([
                 today_date,
                 t_id,
                 t_name,
-                '',
+                current_time,
                 status
             ])
 
         return jsonify({
             'status': 'success',
-            'message':
-                'Teacher attendance logged successfully'
+            'message': f'{t_name} ki attendance {status} mark ho gayi.',
+            'teacher_id': t_id,
+            'teacher_name': t_name,
+            'attendance_status': status,
+            'date': today_date
         })
 
     except Exception as e:
-
         print(
             f"Error in mark_teacher_attendance: {str(e)}"
         )
@@ -1300,7 +1269,7 @@ def mark_teacher_attendance():
             'status': 'error',
             'message': str(e)
         }), 500
-
+        
 @app.route('/api/teacher/my_classes')
 @login_required
 def teacher_my_classes():
