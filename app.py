@@ -1443,7 +1443,6 @@ def scan_qr_attendance():
         )
 
         if not user_email:
-
             return jsonify({
                 'status': 'error',
                 'message':
@@ -1451,96 +1450,114 @@ def scan_qr_attendance():
                     'Kripya pehle login karein.'
             }), 401
 
-user_lat = data.get('lat')
-user_lon = data.get('lon')
-gps_accuracy = data.get('accuracy')
+        # ------------------------------------------
+        # LOCATION DATA
+        # ------------------------------------------
 
-if user_lat is None or user_lon is None:
-    return jsonify({
-        'status': 'error',
-        'message': 'Location access allow kijiye!'
-    }), 400
+        user_lat = data.get('lat')
+        user_lon = data.get('lon')
+        gps_accuracy = data.get('accuracy')
 
-try:
-    user_lat = float(user_lat)
-    user_lon = float(user_lon)
-
-    if gps_accuracy is not None:
-        gps_accuracy = float(gps_accuracy)
-
-except (TypeError, ValueError):
-    return jsonify({
-        'status': 'error',
-        'message': 'Invalid GPS location data mila.'
-    }), 400
-
+        if user_lat is None or user_lon is None:
             return jsonify({
                 'status': 'error',
                 'message':
                     'Location access allow kijiye!'
             }), 400
 
-      user_loc = (user_lat, user_lon)
+        try:
 
-valid_branch = False
-nearest_distance = None
-nearest_branch = None
+            user_lat = float(user_lat)
+            user_lon = float(user_lon)
 
-for branch in BRANCHES:
+            if gps_accuracy is not None:
+                gps_accuracy = float(gps_accuracy)
 
-    branch_loc = (
-        float(branch['lat']),
-        float(branch['lon'])
-    )
+        except (TypeError, ValueError):
 
-    distance = geopy.distance.geodesic(
-        branch_loc,
-        user_loc
-    ).meters
+            return jsonify({
+                'status': 'error',
+                'message':
+                    'Invalid GPS location data mila.'
+            }), 400
 
-    if nearest_distance is None or distance < nearest_distance:
-        nearest_distance = distance
-        nearest_branch = branch
+        # ------------------------------------------
+        # CHECK BRANCH LOCATION
+        # ------------------------------------------
 
-    if distance <= 30:
-        valid_branch = True
-        break
+        user_loc = (
+            user_lat,
+            user_lon
+        )
 
+        valid_branch = False
+        nearest_distance = None
+        nearest_branch = None
 
-if not valid_branch:
+        for branch in BRANCHES:
 
-    distance_text = (
-        f"{nearest_distance:.1f}m"
-        if nearest_distance is not None
-        else "unknown"
-    )
+            branch_loc = (
+                float(branch['lat']),
+                float(branch['lon'])
+            )
 
-    accuracy_text = (
-        f"{gps_accuracy:.1f}m"
-        if gps_accuracy is not None
-        else "unknown"
-    )
+            distance = geopy.distance.geodesic(
+                branch_loc,
+                user_loc
+            ).meters
 
-    return jsonify({
-        'status': 'error',
-        'message': (
-            f'Tuition branch se aapki location '
-            f'approx {distance_text} door mili. '
-            f'GPS accuracy ±{accuracy_text} hai. '
-            f'Please branch ke andar/near jaakar '
-            f'GPS dobara try karein.'
-        ),
-        'distance': nearest_distance,
-        'gps_accuracy': gps_accuracy
-    }), 400
-        # IST date and time
+            if (
+                nearest_distance is None
+                or distance < nearest_distance
+            ):
+                nearest_distance = distance
+                nearest_branch = branch
+
+            if distance <= 30:
+
+                valid_branch = True
+                break
+
+        # ------------------------------------------
+        # LOCATION NOT VALID
+        # ------------------------------------------
+
+        if not valid_branch:
+
+            distance_text = (
+                f"{nearest_distance:.1f}m"
+                if nearest_distance is not None
+                else "unknown"
+            )
+
+            accuracy_text = (
+                f"{gps_accuracy:.1f}m"
+                if gps_accuracy is not None
+                else "unknown"
+            )
+
+            return jsonify({
+                'status': 'error',
+                'message': (
+                    f'Tuition branch se aapki location '
+                    f'approx {distance_text} door mili. '
+                    f'GPS accuracy ±{accuracy_text} hai. '
+                    f'Please branch ke andar/near jaakar '
+                    f'GPS dobara try karein.'
+                ),
+                'distance': nearest_distance,
+                'gps_accuracy': gps_accuracy
+            }), 400
+
+        # ------------------------------------------
+        # IST DATE AND TIME
+        # ------------------------------------------
+
         ist = pytz.timezone(
             'Asia/Kolkata'
         )
 
-        now_ist = datetime.now(
-            ist
-        )
+        now_ist = datetime.now(ist)
 
         today_date = now_ist.strftime(
             '%Y-%m-%d'
@@ -1550,7 +1567,10 @@ if not valid_branch:
             '%I:%M:%S %p'
         )
 
-        # Find teacher from Teacher_Master
+        # ------------------------------------------
+        # FIND TEACHER
+        # ------------------------------------------
+
         teacher_sheet = sheet.worksheet(
             "Teacher_Master"
         )
@@ -1612,7 +1632,10 @@ if not valid_branch:
                     'missing hai!'
             }), 400
 
-        # Teacher Attendance Log
+        # ------------------------------------------
+        # TEACHER ATTENDANCE LOG
+        # ------------------------------------------
+
         log_sheet = sheet.worksheet(
             "Teacher_Attendance_Log"
         )
@@ -1621,7 +1644,10 @@ if not valid_branch:
             log_sheet.get_all_records()
         )
 
-        # Check if this teacher already scanned today
+        # ------------------------------------------
+        # DUPLICATE CHECK
+        # ------------------------------------------
+
         for row in log_records:
 
             sheet_date = str(
@@ -1651,8 +1677,10 @@ if not valid_branch:
                         'already Present hai.'
                 })
 
-        # No attendance found today
-        # Create ONE entry
+        # ------------------------------------------
+        # CREATE ATTENDANCE ENTRY
+        # ------------------------------------------
+
         log_sheet.append_row([
             today_date,
             t_id,
@@ -1671,6 +1699,15 @@ if not valid_branch:
 
     except Exception as e:
 
+        print(
+            f"Error in scan_qr_attendance: {str(e)}"
+        )
+
+        return jsonify({
+            'status': 'error',
+            'message': str(e)
+        }), 500
+        
         print(
             f"Error in scan_qr_attendance: {str(e)}"
         )
