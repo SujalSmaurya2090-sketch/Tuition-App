@@ -1480,42 +1480,59 @@ except (TypeError, ValueError):
                     'Location access allow kijiye!'
             }), 400
 
-        # Check branch location
-        user_loc = (
-            user_lat,
-            user_lon
-        )
+      user_loc = (user_lat, user_lon)
 
-        valid_branch = False
+valid_branch = False
+nearest_distance = None
+nearest_branch = None
 
-        for branch in BRANCHES:
+for branch in BRANCHES:
 
-            branch_loc = (
-                branch['lat'],
-                branch['lon']
-            )
+    branch_loc = (
+        float(branch['lat']),
+        float(branch['lon'])
+    )
 
-            distance = (
-                geopy.distance.geodesic(
-                    branch_loc,
-                    user_loc
-                ).meters
-            )
+    distance = geopy.distance.geodesic(
+        branch_loc,
+        user_loc
+    ).meters
 
-            if distance <= 30:
+    if nearest_distance is None or distance < nearest_distance:
+        nearest_distance = distance
+        nearest_branch = branch
 
-                valid_branch = True
-                break
+    if distance <= 30:
+        valid_branch = True
+        break
 
-        if not valid_branch:
 
-            return jsonify({
-                'status': 'error',
-                'message':
-                    'Aap kisi bhi Tuition Branch '
-                    'ke 30m range mein nahi hain!'
-            }), 400
+if not valid_branch:
 
+    distance_text = (
+        f"{nearest_distance:.1f}m"
+        if nearest_distance is not None
+        else "unknown"
+    )
+
+    accuracy_text = (
+        f"{gps_accuracy:.1f}m"
+        if gps_accuracy is not None
+        else "unknown"
+    )
+
+    return jsonify({
+        'status': 'error',
+        'message': (
+            f'Tuition branch se aapki location '
+            f'approx {distance_text} door mili. '
+            f'GPS accuracy ±{accuracy_text} hai. '
+            f'Please branch ke andar/near jaakar '
+            f'GPS dobara try karein.'
+        ),
+        'distance': nearest_distance,
+        'gps_accuracy': gps_accuracy
+    }), 400
         # IST date and time
         ist = pytz.timezone(
             'Asia/Kolkata'
