@@ -1451,19 +1451,28 @@ def scan_qr_attendance():
                     'Kripya pehle login karein.'
             }), 401
 
-        # Location
-        user_lat = data.get(
-            'lat'
-        )
+user_lat = data.get('lat')
+user_lon = data.get('lon')
+gps_accuracy = data.get('accuracy')
 
-        user_lon = data.get(
-            'lon'
-        )
+if user_lat is None or user_lon is None:
+    return jsonify({
+        'status': 'error',
+        'message': 'Location access allow kijiye!'
+    }), 400
 
-        if (
-            user_lat is None
-            or user_lon is None
-        ):
+try:
+    user_lat = float(user_lat)
+    user_lon = float(user_lon)
+
+    if gps_accuracy is not None:
+        gps_accuracy = float(gps_accuracy)
+
+except (TypeError, ValueError):
+    return jsonify({
+        'status': 'error',
+        'message': 'Invalid GPS location data mila.'
+    }), 400
 
             return jsonify({
                 'status': 'error',
