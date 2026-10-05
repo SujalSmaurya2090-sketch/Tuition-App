@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Scan Attendance - AMPLE VISION</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/html5-qrcode"></script>
+    <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 </head>
 <body class="bg-slate-900 text-white min-h-screen flex flex-col items-center justify-center p-4">
 
@@ -45,8 +45,50 @@
             showStatus("Aap logged in nahi hain! Kripya pehle login karein.", true);
             document.getElementById('login-btn-container').classList.remove('hidden');
         } else {
-            html5QrcodeScanner = new Html5QrcodeScanner("reader", { fps: 10, qrbox: 250 });
-            html5QrcodeScanner.render(onScanSuccess);
+            if (!loggedInUserEmail) {
+
+    showStatus(
+        "Aap logged in nahi hain! Kripya pehle login karein.",
+        true
+    );
+
+    document
+        .getElementById('login-btn-container')
+        .classList
+        .remove('hidden');
+
+} else {
+
+    if (typeof Html5QrcodeScanner === "undefined") {
+
+        showStatus(
+            "QR Scanner load nahi hua. Internet check karke page refresh karein.",
+            true
+        );
+
+        console.error(
+            "Html5QrcodeScanner library load nahi hui."
+        );
+
+    } else {
+
+        html5QrcodeScanner = new Html5QrcodeScanner(
+            "reader",
+            {
+                fps: 10,
+                qrbox: {
+                    width: 250,
+                    height: 250
+                },
+                rememberLastUsedCamera: true
+            }
+        );
+
+        html5QrcodeScanner.render(
+            onScanSuccess
+        );
+    }
+}
         }
 
         function onScanSuccess(decodedText) {
