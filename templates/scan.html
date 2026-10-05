@@ -3,225 +3,543 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
     <title>Scan Attendance - AMPLE VISION</title>
+
     <script src="https://cdn.tailwindcss.com"></script>
+
     <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 </head>
+
 <body class="bg-slate-900 text-white min-h-screen flex flex-col items-center justify-center p-4">
 
     <div class="w-full max-w-md bg-slate-800 rounded-2xl p-6 shadow-2xl border border-slate-700 text-center">
-        <h2 class="text-2xl font-bold mb-1 text-slate-100">Teacher Attendance Scanner</h2>
-        <p class="text-xs text-slate-400 mb-4">Classroom QR code ko camera ke saamne laayein</p>
 
-        <!-- Status Message Box -->
-        <div id="status-box" class="hidden mb-4 p-3 rounded-lg text-sm font-semibold transition-all"></div>
+        <h2 class="text-2xl font-bold mb-1 text-slate-100">
+            Teacher Attendance Scanner
+        </h2>
 
-        <!-- Re-Login Button (hidden by default) -->
-        <div id="login-btn-container" class="hidden mb-4">
-            <a href="/login" class="inline-block bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-6 rounded-lg shadow-lg transition">
-                Click Here to Login First
-            </a>
+        <p class="text-xs text-slate-400 mb-4">
+            Classroom QR code ko camera ke saamne laayein
+        </p>
+
+
+        <!-- STATUS -->
+        <div
+            id="status-box"
+            class="hidden mb-4 p-3 rounded-lg text-sm font-semibold transition-all">
         </div>
-        <a href="https://tuition-app-uv3y.onrender.com">CLick to go to AMPLE VISION</a>
 
-        <!-- Scanner Reader Box -->
-        <div id="reader" class="overflow-hidden rounded-xl border-2 border-dashed border-slate-600 bg-slate-950 min-h-[250px]"></div>
+
+        <!-- LOGIN BUTTON -->
+        <div id="login-btn-container" class="hidden mb-4">
+
+            <a
+                href="/login"
+                class="inline-block bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-6 rounded-lg shadow-lg transition">
+
+                Click Here to Login First
+
+            </a>
+
+        </div>
+
+
+        <!-- HOME LINK -->
+        <a
+            href="/"
+            class="inline-block mb-4 text-indigo-300 hover:text-indigo-200 underline">
+
+            Click to go to AMPLE VISION
+
+        </a>
+
+
+        <!-- QR SCANNER -->
+        <div
+            id="reader"
+            class="overflow-hidden rounded-xl border-2 border-dashed border-slate-600 bg-slate-950 min-h-[250px]">
+        </div>
+
     </div>
 
-    <script>
-        const urlParams = new URLSearchParams(window.location.search);
-        const loggedInUserEmail = urlParams.get('email') || "{{ session.get('email', '') }}";
 
-        let html5QrcodeScanner = null;
+<script>
 
-        function showStatus(msg, isError = false) {
-            const box = document.getElementById('status-box');
-            box.classList.remove('hidden', 'bg-emerald-500/20', 'text-emerald-400', 'bg-rose-500/20', 'text-rose-400');
-            box.classList.add(isError ? 'bg-rose-500/20' : 'bg-emerald-500/20', isError ? 'text-rose-400' : 'text-emerald-400');
-            box.innerText = msg;
+    // --------------------------------------------------
+    // LOGIN / SESSION
+    // --------------------------------------------------
+
+    const urlParams = new URLSearchParams(window.location.search);
+
+    const loggedInUserEmail =
+        urlParams.get('email') ||
+        "{{ session.get('email', '') }}";
+
+
+    // Scanner variable
+
+    let html5QrcodeScanner = null;
+
+
+    // --------------------------------------------------
+    // STATUS MESSAGE
+    // --------------------------------------------------
+
+    function showStatus(msg, isError = false) {
+
+        const box = document.getElementById('status-box');
+
+        box.classList.remove(
+            'hidden',
+            'bg-emerald-500/20',
+            'text-emerald-400',
+            'bg-rose-500/20',
+            'text-rose-400'
+        );
+
+        if (isError) {
+
+            box.classList.add(
+                'bg-rose-500/20',
+                'text-rose-400'
+            );
+
+        } else {
+
+            box.classList.add(
+                'bg-emerald-500/20',
+                'text-emerald-400'
+            );
         }
 
-        if (!loggedInUserEmail) {
-            showStatus("Aap logged in nahi hain! Kripya pehle login karein.", true);
-            document.getElementById('login-btn-container').classList.remove('hidden');
-        } else {
-            if (!loggedInUserEmail) {
+        box.innerText = msg;
+    }
 
-    showStatus(
-        "Aap logged in nahi hain! Kripya pehle login karein.",
-        true
-    );
 
-    document
-        .getElementById('login-btn-container')
-        .classList
-        .remove('hidden');
+    // --------------------------------------------------
+    // QR SCAN SUCCESS
+    // --------------------------------------------------
 
-} else {
+    function onScanSuccess(decodedText) {
 
-    if (typeof Html5QrcodeScanner === "undefined") {
+        console.log("QR Code detected:", decodedText);
+
+
+        // Stop scanner temporarily
+
+        if (html5QrcodeScanner) {
+
+            try {
+
+                html5QrcodeScanner.pause(true);
+
+            } catch (e) {
+
+                console.log(
+                    "Scanner pause error:",
+                    e
+                );
+            }
+        }
+
 
         showStatus(
-            "QR Scanner load nahi hua. Internet check karke page refresh karein.",
-            true
+            "QR scanned! Location verify ho rahi hai...",
+            false
         );
 
-        console.error(
-            "Html5QrcodeScanner library load nahi hui."
-        );
 
-    } else {
+        // --------------------------------------------------
+        // CHECK GEOLOCATION
+        // --------------------------------------------------
 
-        html5QrcodeScanner = new Html5QrcodeScanner(
-            "reader",
-            {
-                fps: 10,
-                qrbox: {
-                    width: 250,
-                    height: 250
-                },
-                rememberLastUsedCamera: true
-            }
-        );
-
-        html5QrcodeScanner.render(
-            onScanSuccess
-        );
-    }
-}
-        }
-
-        function onScanSuccess(decodedText) {
-            // Stop repeated scanning immediately
-            if (html5QrcodeScanner) {
-                try {
-                    html5QrcodeScanner.pause(true);
-                } catch(e) {}
-            }
-
-            showStatus("Verifying Location & Data...", false);
-
-            if (!navigator.geolocation) {
-                showStatus("Location permissions not supported!", true);
-                return;
-            }
-
-           navigator.geolocation.getCurrentPosition(
-    (position) => {
-
-        fetch('/api/scan_qr_attendance', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                qr_code: decodedText,
-                lat: position.coords.latitude,
-                lon: position.coords.longitude,
-                accuracy: position.coords.accuracy,
-                email: loggedInUserEmail
-            })
-        })
-        .then(res => res.json())
-        .then(data => {
-
-            if (data.status === 'success') {
-
-                showStatus(
-                    data.message,
-                    false
-                );
-
-            } else {
-
-                showStatus(
-                    data.message,
-                    true
-                );
-
-                setTimeout(() => {
-                    if (html5QrcodeScanner) {
-                        html5QrcodeScanner.resume();
-                    }
-                }, 3000);
-            }
-        })
-        .catch(err => {
-
-            console.error(err);
+        if (!navigator.geolocation) {
 
             showStatus(
-                "Network Error! Please try again.",
+                "Aapke browser mein location supported nahi hai.",
                 true
             );
 
-            setTimeout(() => {
-                if (html5QrcodeScanner) {
-                    html5QrcodeScanner.resume();
+            return;
+        }
+
+
+        navigator.geolocation.getCurrentPosition(
+
+            // SUCCESS
+            function(position) {
+
+                console.log(
+                    "Latitude:",
+                    position.coords.latitude
+                );
+
+                console.log(
+                    "Longitude:",
+                    position.coords.longitude
+                );
+
+                console.log(
+                    "GPS Accuracy:",
+                    position.coords.accuracy
+                );
+
+
+                // --------------------------------------------------
+                // SEND DATA TO FLASK
+                // --------------------------------------------------
+
+                fetch(
+                    '/api/scan_qr_attendance',
+                    {
+                        method: 'POST',
+
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+
+                        body: JSON.stringify({
+
+                            qr_code: decodedText,
+
+                            lat:
+                                position.coords.latitude,
+
+                            lon:
+                                position.coords.longitude,
+
+                            accuracy:
+                                position.coords.accuracy,
+
+                            email:
+                                loggedInUserEmail
+                        })
+                    }
+                )
+
+                .then(function(response) {
+
+                    return response.json();
+
+                })
+
+                .then(function(data) {
+
+                    console.log(
+                        "Server response:",
+                        data
+                    );
+
+
+                    if (data.status === 'success') {
+
+                        showStatus(
+                            data.message,
+                            false
+                        );
+
+
+                    } else {
+
+                        showStatus(
+                            data.message ||
+                            "Attendance mark nahi hui.",
+                            true
+                        );
+
+
+                        // Scanner restart
+
+                        setTimeout(
+                            function() {
+
+                                if (html5QrcodeScanner) {
+
+                                    try {
+
+                                        html5QrcodeScanner.resume();
+
+                                    } catch (e) {
+
+                                        console.log(
+                                            "Resume error:",
+                                            e
+                                        );
+                                    }
+                                }
+
+                            },
+                            3000
+                        );
+                    }
+
+                })
+
+                .catch(function(error) {
+
+                    console.error(
+                        "Fetch error:",
+                        error
+                    );
+
+
+                    showStatus(
+                        "Network Error! Please try again.",
+                        true
+                    );
+
+
+                    setTimeout(
+                        function() {
+
+                            if (html5QrcodeScanner) {
+
+                                try {
+
+                                    html5QrcodeScanner.resume();
+
+                                } catch (e) {
+
+                                    console.log(
+                                        "Resume error:",
+                                        e
+                                    );
+                                }
+                            }
+
+                        },
+                        3000
+                    );
+
+                });
+
+            },
+
+
+            // --------------------------------------------------
+            // LOCATION ERROR
+            // --------------------------------------------------
+
+            function(error) {
+
+                console.error(
+                    "Location error:",
+                    error
+                );
+
+
+                let message =
+                    "Please allow Location Access to mark attendance!";
+
+
+                if (error.code === 1) {
+
+                    message =
+                        "Location permission denied. Please allow location access.";
+
                 }
-            }, 3000);
-        });
-    },
-    (error) => {
 
-        let message =
-            "Please allow Location Access to mark attendance!";
+                else if (error.code === 2) {
 
-        if (error.code === 1) {
-            message =
-                "Location permission denied. Please allow location access.";
-        }
-        else if (error.code === 2) {
-            message =
-                "Your location could not be determined. Please turn GPS/location ON and try again.";
-        }
-        else if (error.code === 3) {
-            message =
-                "Location request timed out. Please try scanning again.";
-        }
+                    message =
+                        "Location nahi mil rahi. GPS/Location ON karke dobara try karein.";
 
-        showStatus(message, true);
+                }
 
-        setTimeout(() => {
-            if (html5QrcodeScanner) {
-                html5QrcodeScanner.resume();
-            }
-        }, 3000);
-    },
-    {
-        enableHighAccuracy: true,
-        timeout: 15000,
-        maximumAge: 0
-    }
-);
-                    .then(res => res.json())
-                    .then(data => {
-                        if (data.status === 'success') {
-                            showStatus(data.message, false);
-                        } else {
-                            showStatus(data.message, true);
-                            // Resume scanner on error if needed
-                            setTimeout(() => {
-                                if (html5QrcodeScanner) html5QrcodeScanner.resume();
-                            }, 3000);
+                else if (error.code === 3) {
+
+                    message =
+                        "Location request timeout. Dobara try karein.";
+                }
+
+
+                showStatus(
+                    message,
+                    true
+                );
+
+
+                // Scanner restart
+
+                setTimeout(
+                    function() {
+
+                        if (html5QrcodeScanner) {
+
+                            try {
+
+                                html5QrcodeScanner.resume();
+
+                            } catch (e) {
+
+                                console.log(
+                                    "Resume error:",
+                                    e
+                                );
+                            }
                         }
-                    })
-                    .catch(err => {
-                        showStatus("Network Error!", true);
-                        setTimeout(() => {
-                            if (html5QrcodeScanner) html5QrcodeScanner.resume();
-                        }, 3000);
-                    });
-                },
-                (error) => {
-                    showStatus("Please allow Location Access to mark attendance!", true);
-                    setTimeout(() => {
-                        if (html5QrcodeScanner) html5QrcodeScanner.resume();
-                    }, 3000);
-                },
-                { enableHighAccuracy: true }
+
+                    },
+                    3000
+                );
+
+            },
+
+
+            // --------------------------------------------------
+            // GPS OPTIONS
+            // --------------------------------------------------
+
+            {
+                enableHighAccuracy: true,
+
+                timeout: 15000,
+
+                maximumAge: 0
+            }
+
+        );
+
+    }
+
+
+    // --------------------------------------------------
+    // START SCANNER
+    // --------------------------------------------------
+
+    function startScanner() {
+
+        console.log(
+            "Starting QR scanner..."
+        );
+
+
+        // Check library
+
+        if (
+            typeof Html5QrcodeScanner ===
+            "undefined"
+        ) {
+
+            showStatus(
+                "QR Scanner library load nahi hui. Internet check karein.",
+                true
+            );
+
+            console.error(
+                "Html5QrcodeScanner is undefined"
+            );
+
+            return;
+        }
+
+
+        console.log(
+            "QR Scanner library loaded successfully."
+        );
+
+
+        try {
+
+            html5QrcodeScanner =
+                new Html5QrcodeScanner(
+
+                    "reader",
+
+                    {
+
+                        fps: 10,
+
+                        qrbox: {
+                            width: 250,
+                            height: 250
+                        },
+
+                        rememberLastUsedCamera: true,
+
+                        showTorchButtonIfSupported: true
+
+                    }
+                );
+
+
+            html5QrcodeScanner.render(
+                onScanSuccess
+            );
+
+
+            console.log(
+                "QR Scanner started successfully."
+            );
+
+
+        } catch (error) {
+
+            console.error(
+                "Scanner initialization error:",
+                error
+            );
+
+
+            showStatus(
+                "Scanner start nahi ho paaya. Page refresh karke dobara try karein.",
+                true
             );
         }
-    </script>
+
+    }
+
+
+    // --------------------------------------------------
+    // PAGE LOAD
+    // --------------------------------------------------
+
+    document.addEventListener(
+        "DOMContentLoaded",
+        function() {
+
+            console.log(
+                "Scan page loaded."
+            );
+
+
+            console.log(
+                "Logged-in email:",
+                loggedInUserEmail
+            );
+
+
+            // Check login
+
+            if (!loggedInUserEmail) {
+
+                showStatus(
+                    "Aap logged in nahi hain! Kripya pehle login karein.",
+                    true
+                );
+
+
+                document
+                    .getElementById(
+                        'login-btn-container'
+                    )
+                    .classList
+                    .remove('hidden');
+
+
+                return;
+            }
+
+
+            // Start scanner
+
+            startScanner();
+
+        }
+    );
+
+</script>
+
 </body>
 </html>
