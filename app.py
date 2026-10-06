@@ -313,17 +313,15 @@ def logout():
 
 @app.route('/attendance')
 @app.route('/attendance.html')
-@login_required
+@permission_required('Attendance')
 def attendance_page():
-
     return render_template('attendance.html')
-
 
 @app.route('/fees')
 @app.route('/fees.html')
-@login_required
+@permission_required('Fees')
 def fees_page():
-
+    
     user_info = {
         "user_email": session.get(
             'email',
@@ -339,17 +337,15 @@ def fees_page():
 
 @app.route('/marks')
 @app.route('/marks.html')
-@login_required
+@permission_required('Marks')
 def marks_page():
-
     return render_template('marks.html')
 
 
 @app.route('/students')
 @app.route('/students.html')
-@login_required
+@permission_required('Students')
 def students_page():
-
     return render_template('students.html')
 
 
@@ -1854,9 +1850,8 @@ def scan_qr_attendance():
 # --------------------------------------------------
 
 @app.route('/scan')
-@login_required
+@permission_required('Scanner')
 def scan_page():
-
-    return render_template(
+    return render_template('scan.html')
         'scan.html'
     )
