@@ -1288,7 +1288,7 @@ def get_teacher_attendance():
 
 
 @app.route('/api/mark_teacher_attendance', methods=['POST'])
-@login_required
+@role_required('Admin')
 def mark_teacher_attendance():
     try:
         # Only Admin can manually change teacher attendance
