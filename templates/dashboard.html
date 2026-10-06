@@ -282,201 +282,561 @@
         </div>
     </div>
 
-    <!-- Frontend Script Integration -->
-    <script>
-        async function fetchAdminSummary() {
+<script>
 
-                    // ================================
-        // TEACHER PERMISSIONS PANEL
-        // ================================
+    // =====================================================
+    // TEACHER PERMISSIONS PANEL
+    // =====================================================
 
-        function openPermissionsPanel() {
-            document
-                .getElementById('permissions-modal')
-                .classList
-                .remove('hidden');
+    function openPermissionsPanel() {
+        const modal = document.getElementById('permissions-modal');
 
-            loadTeachersForPermissions();
+        if (!modal) {
+            console.error('Permissions modal not found');
+            return;
         }
 
-        function closePermissionsPanel() {
-            document
-                .getElementById('permissions-modal')
-                .classList
-                .add('hidden');
+        modal.classList.remove('hidden');
 
-            document
-                .getElementById('permissions-options')
-                .classList
-                .add('hidden');
+        loadTeachersForPermissions();
+    }
 
-            document
-                .getElementById('permission-teacher')
-                .value = '';
 
-            document
-                .getElementById('permission-message')
-                .classList
-                .add('hidden');
+    function closePermissionsPanel() {
+
+        const modal = document.getElementById('permissions-modal');
+        const options = document.getElementById('permissions-options');
+        const select = document.getElementById('permission-teacher');
+        const message = document.getElementById('permission-message');
+
+        if (modal) {
+            modal.classList.add('hidden');
         }
 
+        if (options) {
+            options.classList.add('hidden');
+        }
 
-        async function loadTeachersForPermissions() {
+        if (select) {
+            select.value = '';
+        }
 
-            const select =
-                document.getElementById('permission-teacher');
+        if (message) {
+            message.classList.add('hidden');
+        }
+    }
+
+
+    async function loadTeachersForPermissions() {
+
+        const select =
+            document.getElementById('permission-teacher');
+
+        if (!select) {
+            console.error('Teacher select not found');
+            return;
+        }
+
+        select.innerHTML =
+            '<option value="">Loading teachers...</option>';
+
+        try {
+
+            const res =
+                await fetch('/api/get_teacher_attendance');
+
+            const data =
+                await res.json();
+
+            if (data.status !== 'success') {
+                throw new Error(
+                    data.message || 'Teacher data load failed'
+                );
+            }
 
             select.innerHTML =
-                '<option value="">Loading teachers...</option>';
+                '<option value="">-- Select Teacher --</option>';
 
-            try {
+            data.teachers.forEach(teacher => {
 
-                const res =
-                    await fetch('/api/get_teacher_attendance');
+                const option =
+                    document.createElement('option');
 
-                const data =
-                    await res.json();
+                option.value = teacher.id;
 
-                if (data.status !== 'success') {
-                    throw new Error(
-                        data.message || 'Teacher data load failed'
-                    );
-                }
+                option.textContent =
+                    `${teacher.name} (${teacher.id})`;
 
-                select.innerHTML =
-                    '<option value="">-- Select Teacher --</option>';
+                select.appendChild(option);
+            });
 
-                data.teachers.forEach(teacher => {
+        } catch (error) {
 
-                    const option =
-                        document.createElement('option');
+            console.error(
+                'Teacher loading error:',
+                error
+            );
 
-                    option.value = teacher.id;
+            select.innerHTML =
+                '<option value="">Unable to load teachers</option>';
+        }
+    }
 
-                    option.textContent =
-                        `${teacher.name} (${teacher.id})`;
 
-                    select.appendChild(option);
-                });
+    async function loadTeacherPermissions() {
 
-            } catch (error) {
+        const teacherId =
+            document.getElementById(
+                'permission-teacher'
+            ).value;
 
-                console.error(
-                    'Teacher loading error:',
-                    error
-                );
+        const options =
+            document.getElementById(
+                'permissions-options'
+            );
 
-                select.innerHTML =
-                    '<option value="">Unable to load teachers</option>';
-            }
+        if (!teacherId) {
+
+            options.classList.add('hidden');
+
+            return;
         }
 
+        options.classList.remove('hidden');
 
-        async function loadTeacherPermissions() {
+        // Reset checkboxes first
+        document.getElementById('perm-attendance').checked = false;
+        document.getElementById('perm-fees').checked = false;
+        document.getElementById('perm-marks').checked = false;
+        document.getElementById('perm-students').checked = false;
+        document.getElementById('perm-scanner').checked = false;
+        document.getElementById('perm-classes').checked = false;
 
-            const teacherId =
-                document.getElementById('permission-teacher').value;
+        try {
 
-            const options =
-                document.getElementById('permissions-options');
+            const res = await fetch(
+                `/api/get_teacher_permissions?teacher_id=${encodeURIComponent(teacherId)}`
+            );
 
-            if (!teacherId) {
+            const data = await res.json();
 
-                options.classList.add('hidden');
+            if (data.status !== 'success') {
+
+                console.log(
+                    'No saved permissions found yet.'
+                );
 
                 return;
             }
 
-            options.classList.remove('hidden');
+            const permissions =
+                data.permissions || {};
 
-            // Temporary reset
-            document.getElementById('perm-attendance').checked = false;
-            document.getElementById('perm-fees').checked = false;
-            document.getElementById('perm-marks').checked = false;
-            document.getElementById('perm-students').checked = false;
-            document.getElementById('perm-scanner').checked = false;
-            document.getElementById('perm-classes').checked = false;
+            document.getElementById(
+                'perm-attendance'
+            ).checked =
+                !!permissions.Attendance;
 
-            try {
+            document.getElementById(
+                'perm-fees'
+            ).checked =
+                !!permissions.Fees;
 
-                const res = await fetch(
-                    `/api/get_teacher_permissions?teacher_id=${encodeURIComponent(teacherId)}`
+            document.getElementById(
+                'perm-marks'
+            ).checked =
+                !!permissions.Marks;
+
+            document.getElementById(
+                'perm-students'
+            ).checked =
+                !!permissions.Students;
+
+            document.getElementById(
+                'perm-scanner'
+            ).checked =
+                !!permissions.Scanner;
+
+            document.getElementById(
+                'perm-classes'
+            ).checked =
+                !!permissions.My_Classes;
+
+        } catch (error) {
+
+            console.error(
+                'Permission loading error:',
+                error
+            );
+        }
+    }
+
+
+    async function saveTeacherPermissions() {
+
+        const teacherId =
+            document.getElementById(
+                'permission-teacher'
+            ).value;
+
+        if (!teacherId) {
+
+            alert(
+                'Pehle teacher select karein.'
+            );
+
+            return;
+        }
+
+        const permissions = {
+
+            Attendance:
+                document.getElementById(
+                    'perm-attendance'
+                ).checked,
+
+            Fees:
+                document.getElementById(
+                    'perm-fees'
+                ).checked,
+
+            Marks:
+                document.getElementById(
+                    'perm-marks'
+                ).checked,
+
+            Students:
+                document.getElementById(
+                    'perm-students'
+                ).checked,
+
+            Scanner:
+                document.getElementById(
+                    'perm-scanner'
+                ).checked,
+
+            My_Classes:
+                document.getElementById(
+                    'perm-classes'
+                ).checked
+        };
+
+        try {
+
+            const res = await fetch(
+                '/api/save_teacher_permissions',
+                {
+                    method: 'POST',
+
+                    headers: {
+                        'Content-Type':
+                            'application/json'
+                    },
+
+                    body: JSON.stringify({
+                        teacher_id: teacherId,
+                        permissions: permissions
+                    })
+                }
+            );
+
+            const data = await res.json();
+
+            const message =
+                document.getElementById(
+                    'permission-message'
                 );
 
-                const data = await res.json();
+            message.classList.remove('hidden');
 
-                if (data.status !== 'success') {
+            if (data.status === 'success') {
+
+                message.textContent =
+                    '✅ Permissions successfully save ho gayi!';
+
+                message.className =
+                    'text-sm mt-4 text-center text-emerald-600 font-semibold';
+
+            } else {
+
+                message.textContent =
+                    '❌ ' +
+                    (
+                        data.message ||
+                        'Permissions save nahi hui.'
+                    );
+
+                message.className =
+                    'text-sm mt-4 text-center text-rose-600 font-semibold';
+            }
+
+        } catch (error) {
+
+            console.error(
+                'Permission save error:',
+                error
+            );
+
+            alert(
+                'Server se connection nahi ho paya.'
+            );
+        }
+    }
+
+
+    // =====================================================
+    // ADMIN SUMMARY
+    // =====================================================
+
+    async function fetchAdminSummary() {
+
+        try {
+
+            const res =
+                await fetch('/api/admin_summary');
+
+            const data =
+                await res.json();
+
+            if (data.status === 'success') {
+
+                document.getElementById(
+                    'card-present'
+                ).innerText =
+                    data.today_present;
+
+                document.getElementById(
+                    'card-absent'
+                ).innerText =
+                    data.today_absent;
+
+                document.getElementById(
+                    'card-fees'
+                ).innerText =
+                    '₹' +
+                    Number(
+                        data.total_collection || 0
+                    ).toLocaleString('en-IN');
+
+
+                // -----------------------------
+                // ABSENT STUDENTS
+                // -----------------------------
+
+                const absentTbody =
+                    document.getElementById(
+                        'tbl-absent'
+                    );
+
+                if (
+                    !data.absent_students ||
+                    data.absent_students.length === 0
+                ) {
+
+                    absentTbody.innerHTML =
+                        '<tr><td colspan="3" class="p-4 text-center text-emerald-600 font-medium">No absent students recorded today!</td></tr>';
+
+                } else {
+
+                    absentTbody.innerHTML =
+                        data.absent_students.map(
+                            s => `
+                            <tr class="hover:bg-slate-50">
+                                <td class="p-3 font-semibold text-slate-500">
+                                    ${s.student_id || '-'}
+                                </td>
+
+                                <td class="p-3 font-medium text-slate-800">
+                                    ${s.name || '-'}
+                                </td>
+
+                                <td class="p-3">
+                                    ${s.class || '-'}
+                                </td>
+                            </tr>
+                        `
+                        ).join('');
+                }
+
+
+                // -----------------------------
+                // FEE COLLECTION
+                // -----------------------------
+
+                const feesTbody =
+                    document.getElementById(
+                        'tbl-fees'
+                    );
+
+                if (
+                    !data.recent_fees ||
+                    data.recent_fees.length === 0
+                ) {
+
+                    feesTbody.innerHTML =
+                        '<tr><td colspan="4" class="p-4 text-center text-slate-400">No fee logs available.</td></tr>';
+
+                } else {
+
+                    feesTbody.innerHTML =
+                        data.recent_fees.map(
+                            f => `
+                            <tr class="hover:bg-slate-50">
+
+                                <td class="p-3 text-xs text-slate-500">
+                                    ${f.date || '-'}
+                                </td>
+
+                                <td class="p-3 font-medium text-slate-800">
+                                    ${f.name || '-'}
+                                </td>
+
+                                <td class="p-3 font-bold text-indigo-600">
+                                    ₹${f.amount || '0'}
+                                </td>
+
+                                <td class="p-3 text-xs">
+                                    <span class="bg-slate-100 border px-2 py-1 rounded-md">
+                                        ${f.mode || 'Cash'}
+                                    </span>
+                                </td>
+
+                            </tr>
+                        `
+                        ).join('');
+                }
+            }
+
+        } catch (err) {
+
+            console.error(
+                "Error loading admin summary:",
+                err
+            );
+        }
+    }
+
+
+    // =====================================================
+    // TEACHER ATTENDANCE
+    // =====================================================
+
+    async function fetchTeacherAttendance() {
+
+        try {
+
+            const res =
+                await fetch(
+                    '/api/get_teacher_attendance'
+                );
+
+            const data =
+                await res.json();
+
+            if (data.status === 'success') {
+
+                const tbody =
+                    document.getElementById(
+                        'tbl-teachers'
+                    );
+
+                if (
+                    !data.teachers ||
+                    data.teachers.length === 0
+                ) {
+
+                    tbody.innerHTML =
+                        '<tr><td colspan="5" class="p-4 text-center text-slate-400">No teachers found in database.</td></tr>';
+
                     return;
                 }
 
-                const permissions =
-                    data.permissions || {};
+                tbody.innerHTML =
+                    data.teachers.map(
+                        t => {
 
-                document.getElementById('perm-attendance').checked =
-                    !!permissions.Attendance;
+                            const isPresent =
+                                t.status === 'Present';
 
-                document.getElementById('perm-fees').checked =
-                    !!permissions.Fees;
+                            return `
+                                <tr class="hover:bg-slate-50">
 
-                document.getElementById('perm-marks').checked =
-                    !!permissions.Marks;
+                                    <td class="p-3 text-xs font-semibold text-slate-500">
+                                        ${t.id}
+                                    </td>
 
-                document.getElementById('perm-students').checked =
-                    !!permissions.Students;
+                                    <td class="p-3 font-medium text-slate-800">
+                                        ${t.name}
+                                    </td>
 
-                document.getElementById('perm-scanner').checked =
-                    !!permissions.Scanner;
+                                    <td class="p-3 text-xs text-slate-500">
+                                        ${t.role}
+                                    </td>
 
-                document.getElementById('perm-classes').checked =
-                    !!permissions.My_Classes;
+                                    <td class="p-3">
 
-            } catch (error) {
+                                        <span class="text-xs font-bold px-2.5 py-1 rounded-full ${
+                                            isPresent
+                                                ? 'bg-emerald-100 text-emerald-700'
+                                                : 'bg-rose-100 text-rose-700'
+                                        }">
 
-                console.error(
-                    'Permission loading error:',
-                    error
-                );
+                                            ${t.status}
+
+                                        </span>
+
+                                    </td>
+
+                                    <td class="p-3 text-right space-x-1">
+
+                                        <button
+                                            onclick="markTeacher(${t.row_id}, 'Present')"
+                                            class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs px-3 py-1.5 rounded-lg font-medium transition-colors">
+
+                                            Present
+
+                                        </button>
+
+                                        <button
+                                            onclick="markTeacher(${t.row_id}, 'Absent')"
+                                            class="bg-rose-600 hover:bg-rose-700 text-white text-xs px-3 py-1.5 rounded-lg font-medium transition-colors">
+
+                                            Absent
+
+                                        </button>
+
+                                    </td>
+
+                                </tr>
+                            `;
+                        }
+                    ).join('');
             }
+
+        } catch (err) {
+
+            console.error(
+                "Error loading teacher data:",
+                err
+            );
         }
+    }
 
 
-        async function saveTeacherPermissions() {
+    // =====================================================
+    // MANUAL TEACHER ATTENDANCE
+    // =====================================================
 
-            const teacherId =
-                document.getElementById('permission-teacher').value;
+    async function markTeacher(
+        rowId,
+        status
+    ) {
 
-            if (!teacherId) {
+        try {
 
-                alert('Pehle teacher select karein.');
-
-                return;
-            }
-
-            const permissions = {
-
-                Attendance:
-                    document.getElementById('perm-attendance').checked,
-
-                Fees:
-                    document.getElementById('perm-fees').checked,
-
-                Marks:
-                    document.getElementById('perm-marks').checked,
-
-                Students:
-                    document.getElementById('perm-students').checked,
-
-                Scanner:
-                    document.getElementById('perm-scanner').checked,
-
-                My_Classes:
-                    document.getElementById('perm-classes').checked
-            };
-
-            try {
-
-                const res = await fetch(
-                    '/api/save_teacher_permissions',
+            const res =
+                await fetch(
+                    '/api/mark_teacher_attendance',
                     {
                         method: 'POST',
 
@@ -486,161 +846,53 @@
                         },
 
                         body: JSON.stringify({
-                            teacher_id: teacherId,
-                            permissions: permissions
+                            row_id: rowId,
+                            status: status
                         })
                     }
                 );
 
-                const data = await res.json();
+            const data =
+                await res.json();
 
-                const message =
-                    document.getElementById(
-                        'permission-message'
-                    );
+            if (data.status === 'success') {
 
-                message.classList.remove('hidden');
+                fetchTeacherAttendance();
 
-                if (data.status === 'success') {
-
-                    message.textContent =
-                        '✅ Permissions successfully save ho gayi!';
-
-                    message.className =
-                        'text-sm mt-4 text-center text-emerald-600 font-semibold';
-
-                } else {
-
-                    message.textContent =
-                        '❌ ' +
-                        (data.message ||
-                        'Permissions save nahi hui.');
-
-                    message.className =
-                        'text-sm mt-4 text-center text-rose-600 font-semibold';
-                }
-
-            } catch (error) {
-
-                console.error(
-                    'Permission save error:',
-                    error
-                );
+            } else {
 
                 alert(
-                    'Server se connection nahi ho paya.'
+                    'Error marking status: ' +
+                    data.message
                 );
             }
+
+        } catch (err) {
+
+            console.error(err);
+
+            alert(
+                'API Request Failed'
+            );
         }
-            
-            try {
-                const res = await fetch('/api/admin_summary');
-                const data = await res.json();
-                
-                if (data.status === 'success') {
-                    // Dynamic Card Updates
-                    document.getElementById('card-present').innerText = data.today_present;
-                    document.getElementById('card-absent').innerText = data.today_absent;
-                    document.getElementById('card-fees').innerText = '₹' + data.total_collection.toLocaleString('en-IN');
+    }
 
-                    // Absent Students Render
-                    const absentTbody = document.getElementById('tbl-absent');
-                    if (data.absent_students.length === 0) {
-                        absentTbody.innerHTML = '<tr><td colspan="3" class="p-4 text-center text-emerald-600 font-medium">No absent students recorded today!</td></tr>';
-                    } else {
-                        absentTbody.innerHTML = data.absent_students.map(s => `
-                            <tr class="hover:bg-slate-50">
-                                <td class="p-3 font-semibold text-slate-500">${s.student_id || '-'}</td>
-                                <td class="p-3 font-medium text-slate-800">${s.name || '-'}</td>
-                                <td class="p-3">${s.class || '-'}</td>
-                            </tr>
-                        `).join('');
-                    }
 
-                    // Fee Collections Render
-                    const feesTbody = document.getElementById('tbl-fees');
-                    if (data.recent_fees.length === 0) {
-                        feesTbody.innerHTML = '<tr><td colspan="4" class="p-4 text-center text-slate-400">No fee logs available.</td></tr>';
-                    } else {
-                        feesTbody.innerHTML = data.recent_fees.map(f => `
-                            <tr class="hover:bg-slate-50">
-                                <td class="p-3 text-xs text-slate-500">${f.date || '-'}</td>
-                                <td class="p-3 font-medium text-slate-800">${f.name || '-'}</td>
-                                <td class="p-3 font-bold text-indigo-600">₹${f.amount || '0'}</td>
-                                <td class="p-3 text-xs"><span class="bg-slate-100 border px-2 py-1 rounded-md">${f.mode || 'Cash'}</span></td>
-                            </tr>
-                        `).join('');
-                    }
-                }
-            } catch (err) {
-                console.error("Error loading admin summary:", err);
-            }
-        }
+    // =====================================================
+    // INITIALIZE DASHBOARD
+    // =====================================================
 
-        async function fetchTeacherAttendance() {
-            try {
-                const res = await fetch('/api/get_teacher_attendance');
-                const data = await res.json();
+    document.addEventListener(
+        'DOMContentLoaded',
+        () => {
 
-                if (data.status === 'success') {
-                    const tbody = document.getElementById('tbl-teachers');
-                    if (data.teachers.length === 0) {
-                        tbody.innerHTML = '<tr><td colspan="5" class="p-4 text-center text-slate-400">No teachers found in database.</td></tr>';
-                        return;
-                    }
-
-                    tbody.innerHTML = data.teachers.map(t => {
-                        const isPresent = t.status === 'Present';
-                        return `
-                            <tr class="hover:bg-slate-50">
-                                <td class="p-3 text-xs font-semibold text-slate-500">${t.id}</td>
-                                <td class="p-3 font-medium text-slate-800">${t.name}</td>
-                                <td class="p-3 text-xs text-slate-500">${t.role}</td>
-                                <td class="p-3">
-                                    <span class="text-xs font-bold px-2.5 py-1 rounded-full ${isPresent ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}">
-                                        ${t.status}
-                                    </span>
-                                </td>
-                                <td class="p-3 text-right space-x-1">
-                                    <button onclick="markTeacher(${t.row_id}, 'Present')" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs px-3 py-1.5 rounded-lg font-medium transition-colors">
-                                        Present
-                                    </button>
-                                    <button onclick="markTeacher(${t.row_id}, 'Absent')" class="bg-rose-600 hover:bg-rose-700 text-white text-xs px-3 py-1.5 rounded-lg font-medium transition-colors">
-                                        Absent
-                                    </button>
-                                </td>
-                            </tr>
-                        `;
-                    }).join('');
-                }
-            } catch (err) {
-                console.error("Error loading teacher data:", err);
-            }
-        }
-
-        async function markTeacher(rowId, status) {
-            try {
-                const res = await fetch('/api/mark_teacher_attendance', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ row_id: rowId, status: status })
-                });
-                const data = await res.json();
-                if (data.status === 'success') {
-                    fetchTeacherAttendance();
-                } else {
-                    alert('Error marking status: ' + data.message);
-                }
-            } catch (err) {
-                alert('API Request Failed');
-            }
-        }
-
-        // Initialize dashboard calls
-        document.addEventListener('DOMContentLoaded', () => {
             fetchAdminSummary();
+
             fetchTeacherAttendance();
-        });
-    </script>
+
+        }
+    );
+
+</script>
 </body>
 </html>
