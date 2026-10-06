@@ -480,7 +480,7 @@ def get_students_by_class(class_name):
 
 
 @app.route('/add_student', methods=['POST'])
-@login_required
+@permission_required('Students')
 def add_student():
 
     try:
@@ -561,7 +561,7 @@ def add_student():
 
 
 @app.route('/save_fee', methods=['POST'])
-@login_required
+@permission_required('Fees')
 def save_fee():
 
     try:
@@ -622,9 +622,8 @@ def save_fee():
 
 
 @app.route('/save_attendance', methods=['POST'])
-@login_required
+@permission_required('Attendance')
 def save_attendance():
-
     try:
 
         data = (
@@ -790,9 +789,8 @@ def save_attendance():
 
 
 @app.route('/save_marks', methods=['POST'])
-@login_required
+@permission_required('Marks')
 def save_marks():
-
     try:
 
         data = (
@@ -1552,10 +1550,8 @@ BRANCHES = [
 # QR TEACHER ATTENDANCE
 # --------------------------------------------------
 
-@app.route(
-    '/api/scan_qr_attendance',
-    methods=['POST']
-)
+@app.route('/api/scan_qr_attendance', methods=['POST'])
+@permission_required('Scanner')
 def scan_qr_attendance():
 
     try:
