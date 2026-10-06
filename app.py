@@ -1397,7 +1397,7 @@ def mark_teacher_attendance():
         }), 500
         
 @app.route('/api/teacher/my_classes')
-@login_required
+@permission_required('My_Classes')
 def teacher_my_classes():
     try:
         user_email = str(
