@@ -79,6 +79,143 @@ def role_required(*allowed_roles):
 
     return decorator
 
+# --------------------------------------------------
+# TEACHER PERMISSIONS
+# --------------------------------------------------
+
+TEACHER_PERMISSION_FIELDS = [
+    "Attendance",
+    "Marks",
+    "Add_Student",
+    "Collect_Fee",
+    "Students",
+    "My_Classes"
+]
+
+
+def get_teacher_permissions(teacher_id):
+    """
+    Teacher_Permissions sheet se ek teacher ki permissions
+    return karta hai.
+    """
+
+    default_permissions = {
+        permission: False
+        for permission in TEACHER_PERMISSION_FIELDS
+    }
+
+    try:
+        permission_sheet = sheet.worksheet(
+            "Teacher_Permissions"
+        )
+
+        records = permission_sheet.get_all_records()
+
+        target_id = str(
+            teacher_id
+        ).strip().lower()
+
+        for row in records:
+
+            row_id = str(
+                row.get("Teacher_ID", "")
+            ).strip().lower()
+
+            if row_id == target_id:
+
+                permissions = {}
+
+                for permission in TEACHER_PERMISSION_FIELDS:
+
+                    value = str(
+                        row.get(permission, "")
+                    ).strip().lower()
+
+                    permissions[permission] = (
+                        value in [
+                            "true",
+                            "1",
+                            "yes",
+                            "on"
+                        ]
+                    )
+
+                return permissions
+
+        return default_permissions
+
+    except Exception as e:
+
+        print(
+            f"Permission read error: {str(e)}"
+        )
+
+        return default_permissions
+
+
+def teacher_has_permission(permission):
+    """
+    Current logged-in teacher ke paas particular
+    permission hai ya nahi check karta hai.
+    """
+
+    # Admin ko complete access
+    if session.get("role") == "Admin":
+        return True
+
+    if session.get("role") != "Teacher":
+        return False
+
+    teacher_email = str(
+        session.get("email", "")
+    ).strip().lower()
+
+    if not teacher_email:
+        return False
+
+    try:
+
+        teacher_sheet = sheet.worksheet(
+            "Teacher_Master"
+        )
+
+        teachers = teacher_sheet.get_all_records()
+
+        teacher_id = None
+
+        for teacher in teachers:
+
+            email = str(
+                teacher.get("Email", "")
+            ).strip().lower()
+
+            if email == teacher_email:
+
+                teacher_id = str(
+                    teacher.get("Teacher_id", "")
+                ).strip()
+
+                break
+
+        if not teacher_id:
+            return False
+
+        permissions = get_teacher_permissions(
+            teacher_id
+        )
+
+        return permissions.get(
+            permission,
+            False
+        )
+
+    except Exception as e:
+
+        print(
+            f"Permission check error: {str(e)}"
+        )
+
+        return False
 
 # --------------------------------------------------
 # PAGE ROUTES
