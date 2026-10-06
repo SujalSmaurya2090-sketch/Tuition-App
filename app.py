@@ -1140,6 +1140,146 @@ def admin_summary():
         }), 500
 
 
+# =========================================================
+# TEACHER PERMISSIONS
+# =========================================================
+
+@app.route('/api/get_teacher_permissions')
+@login_required
+def get_teacher_permissions():
+    try:
+        teacher_id = str(
+            request.args.get('teacher_id', '')
+        ).strip()
+
+        if not teacher_id:
+            return jsonify({
+                'status': 'error',
+                'message': 'Teacher ID required'
+            }), 400
+
+        permissions_sheet = sheet.worksheet("Teacher_Assignments")
+        records = permissions_sheet.get_all_records()
+
+        default_permissions = {
+            'Attendance': False,
+            'Fees': False,
+            'Marks': False,
+            'Students': False,
+            'Scanner': False,
+            'My_Classes': False
+        }
+
+        for row in records:
+            row_teacher_id = str(
+                row.get('Teacher_ID', '')
+            ).strip()
+
+            if row_teacher_id == teacher_id:
+
+                permissions = {
+                    'Attendance': str(row.get('Attendance', '')).lower() == 'true',
+                    'Fees': str(row.get('Fees', '')).lower() == 'true',
+                    'Marks': str(row.get('Marks', '')).lower() == 'true',
+                    'Students': str(row.get('Students', '')).lower() == 'true',
+                    'Scanner': str(row.get('Scanner', '')).lower() == 'true',
+                    'My_Classes': str(row.get('My_Classes', '')).lower() == 'true'
+                }
+
+                return jsonify({
+                    'status': 'success',
+                    'permissions': permissions
+                })
+
+        return jsonify({
+            'status': 'success',
+            'permissions': default_permissions
+        })
+
+    except Exception as e:
+        print(f"Error in get_teacher_permissions: {str(e)}")
+
+        return jsonify({
+            'status': 'error',
+            'message': str(e)
+        }), 500
+
+
+@app.route('/api/save_teacher_permissions', methods=['POST'])
+@login_required
+def save_teacher_permissions():
+    try:
+        data = request.json or {}
+
+        teacher_id = str(
+            data.get('teacher_id', '')
+        ).strip()
+
+        permissions = data.get('permissions', {})
+
+        if not teacher_id:
+            return jsonify({
+                'status': 'error',
+                'message': 'Teacher ID required'
+            }), 400
+
+        # Teacher_Assignments sheet
+        permissions_sheet = sheet.worksheet("Teacher_Assignments")
+
+        records = permissions_sheet.get_all_records()
+
+        # Find existing teacher row
+        existing_row = None
+
+        for index, row in enumerate(records, start=2):
+
+            row_teacher_id = str(
+                row.get('Teacher_ID', '')
+            ).strip()
+
+            if row_teacher_id == teacher_id:
+                existing_row = index
+                break
+
+        values = [
+            teacher_id,
+            bool(permissions.get('Attendance', False)),
+            bool(permissions.get('Fees', False)),
+            bool(permissions.get('Marks', False)),
+            bool(permissions.get('Students', False)),
+            bool(permissions.get('Scanner', False)),
+            bool(permissions.get('My_Classes', False))
+        ]
+
+        # Existing teacher → update
+        if existing_row:
+
+            permissions_sheet.update(
+                f'A{existing_row}:G{existing_row}',
+                [values]
+            )
+
+        # New teacher → create row
+        else:
+
+            permissions_sheet.append_row(values)
+
+        return jsonify({
+            'status': 'success',
+            'message': 'Teacher permissions saved successfully'
+        })
+
+    except Exception as e:
+
+        print(
+            f"Error in save_teacher_permissions: {str(e)}"
+        )
+
+        return jsonify({
+            'status': 'error',
+            'message': str(e)
+        }), 500
+        
 # --------------------------------------------------
 # TEACHER ATTENDANCE
 # --------------------------------------------------
