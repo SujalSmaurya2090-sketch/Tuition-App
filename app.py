@@ -1849,5 +1849,3 @@ def scan_qr_attendance():
 @permission_required('Scanner')
 def scan_page():
     return render_template('scan.html')
-        'scan.html'
-    )
