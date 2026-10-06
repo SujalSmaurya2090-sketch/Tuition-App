@@ -163,9 +163,376 @@
         </div>
     </div>
 
+        <!-- Teacher Permissions Panel -->
+    <div id="permissions-modal"
+         class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+
+        <div class="bg-white w-full max-w-2xl rounded-2xl shadow-2xl p-6">
+
+            <div class="flex justify-between items-center mb-6">
+                <div>
+                    <h2 class="text-xl font-bold text-slate-800">
+                        🔐 Teacher Permissions
+                    </h2>
+                    <p class="text-sm text-slate-500">
+                        Decide karein ki kaunsa teacher kya access kar sakta hai.
+                    </p>
+                </div>
+
+                <button
+                    onclick="closePermissionsPanel()"
+                    class="text-slate-500 hover:text-rose-600 text-2xl font-bold">
+                    ×
+                </button>
+            </div>
+
+            <!-- Teacher Selection -->
+            <div class="mb-5">
+                <label class="block text-sm font-semibold text-slate-700 mb-2">
+                    Select Teacher
+                </label>
+
+                <select
+                    id="permission-teacher"
+                    onchange="loadTeacherPermissions()"
+                    class="w-full border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+
+                    <option value="">
+                        -- Select Teacher --
+                    </option>
+
+                </select>
+            </div>
+
+            <!-- Permissions -->
+            <div id="permissions-options"
+                 class="hidden grid grid-cols-1 sm:grid-cols-2 gap-3">
+
+                <label class="flex items-center gap-3 p-3 border rounded-lg">
+                    <input
+                        type="checkbox"
+                        id="perm-attendance"
+                        class="w-4 h-4">
+                    <span class="font-medium">Attendance</span>
+                </label>
+
+                <label class="flex items-center gap-3 p-3 border rounded-lg">
+                    <input
+                        type="checkbox"
+                        id="perm-fees"
+                        class="w-4 h-4">
+                    <span class="font-medium">Fee Collection</span>
+                </label>
+
+                <label class="flex items-center gap-3 p-3 border rounded-lg">
+                    <input
+                        type="checkbox"
+                        id="perm-marks"
+                        class="w-4 h-4">
+                    <span class="font-medium">Marks Entry</span>
+                </label>
+
+                <label class="flex items-center gap-3 p-3 border rounded-lg">
+                    <input
+                        type="checkbox"
+                        id="perm-students"
+                        class="w-4 h-4">
+                    <span class="font-medium">Student Directory</span>
+                </label>
+
+                <label class="flex items-center gap-3 p-3 border rounded-lg">
+                    <input
+                        type="checkbox"
+                        id="perm-scanner"
+                        class="w-4 h-4">
+                    <span class="font-medium">Attendance Scanner</span>
+                </label>
+
+                <label class="flex items-center gap-3 p-3 border rounded-lg">
+                    <input
+                        type="checkbox"
+                        id="perm-classes"
+                        class="w-4 h-4">
+                    <span class="font-medium">My Classes</span>
+                </label>
+
+            </div>
+
+            <!-- Save -->
+            <div class="flex justify-end gap-3 mt-6">
+
+                <button
+                    onclick="closePermissionsPanel()"
+                    class="px-4 py-2 rounded-lg bg-slate-200 hover:bg-slate-300 text-slate-700">
+                    Cancel
+                </button>
+
+                <button
+                    onclick="saveTeacherPermissions()"
+                    class="px-5 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-semibold">
+                    Save Permissions
+                </button>
+
+            </div>
+
+            <p id="permission-message"
+               class="text-sm mt-4 text-center hidden">
+            </p>
+
+        </div>
+    </div>
+
     <!-- Frontend Script Integration -->
     <script>
         async function fetchAdminSummary() {
+
+                    // ================================
+        // TEACHER PERMISSIONS PANEL
+        // ================================
+
+        function openPermissionsPanel() {
+            document
+                .getElementById('permissions-modal')
+                .classList
+                .remove('hidden');
+
+            loadTeachersForPermissions();
+        }
+
+        function closePermissionsPanel() {
+            document
+                .getElementById('permissions-modal')
+                .classList
+                .add('hidden');
+
+            document
+                .getElementById('permissions-options')
+                .classList
+                .add('hidden');
+
+            document
+                .getElementById('permission-teacher')
+                .value = '';
+
+            document
+                .getElementById('permission-message')
+                .classList
+                .add('hidden');
+        }
+
+
+        async function loadTeachersForPermissions() {
+
+            const select =
+                document.getElementById('permission-teacher');
+
+            select.innerHTML =
+                '<option value="">Loading teachers...</option>';
+
+            try {
+
+                const res =
+                    await fetch('/api/get_teacher_attendance');
+
+                const data =
+                    await res.json();
+
+                if (data.status !== 'success') {
+                    throw new Error(
+                        data.message || 'Teacher data load failed'
+                    );
+                }
+
+                select.innerHTML =
+                    '<option value="">-- Select Teacher --</option>';
+
+                data.teachers.forEach(teacher => {
+
+                    const option =
+                        document.createElement('option');
+
+                    option.value = teacher.id;
+
+                    option.textContent =
+                        `${teacher.name} (${teacher.id})`;
+
+                    select.appendChild(option);
+                });
+
+            } catch (error) {
+
+                console.error(
+                    'Teacher loading error:',
+                    error
+                );
+
+                select.innerHTML =
+                    '<option value="">Unable to load teachers</option>';
+            }
+        }
+
+
+        async function loadTeacherPermissions() {
+
+            const teacherId =
+                document.getElementById('permission-teacher').value;
+
+            const options =
+                document.getElementById('permissions-options');
+
+            if (!teacherId) {
+
+                options.classList.add('hidden');
+
+                return;
+            }
+
+            options.classList.remove('hidden');
+
+            // Temporary reset
+            document.getElementById('perm-attendance').checked = false;
+            document.getElementById('perm-fees').checked = false;
+            document.getElementById('perm-marks').checked = false;
+            document.getElementById('perm-students').checked = false;
+            document.getElementById('perm-scanner').checked = false;
+            document.getElementById('perm-classes').checked = false;
+
+            try {
+
+                const res = await fetch(
+                    `/api/get_teacher_permissions?teacher_id=${encodeURIComponent(teacherId)}`
+                );
+
+                const data = await res.json();
+
+                if (data.status !== 'success') {
+                    return;
+                }
+
+                const permissions =
+                    data.permissions || {};
+
+                document.getElementById('perm-attendance').checked =
+                    !!permissions.Attendance;
+
+                document.getElementById('perm-fees').checked =
+                    !!permissions.Fees;
+
+                document.getElementById('perm-marks').checked =
+                    !!permissions.Marks;
+
+                document.getElementById('perm-students').checked =
+                    !!permissions.Students;
+
+                document.getElementById('perm-scanner').checked =
+                    !!permissions.Scanner;
+
+                document.getElementById('perm-classes').checked =
+                    !!permissions.My_Classes;
+
+            } catch (error) {
+
+                console.error(
+                    'Permission loading error:',
+                    error
+                );
+            }
+        }
+
+
+        async function saveTeacherPermissions() {
+
+            const teacherId =
+                document.getElementById('permission-teacher').value;
+
+            if (!teacherId) {
+
+                alert('Pehle teacher select karein.');
+
+                return;
+            }
+
+            const permissions = {
+
+                Attendance:
+                    document.getElementById('perm-attendance').checked,
+
+                Fees:
+                    document.getElementById('perm-fees').checked,
+
+                Marks:
+                    document.getElementById('perm-marks').checked,
+
+                Students:
+                    document.getElementById('perm-students').checked,
+
+                Scanner:
+                    document.getElementById('perm-scanner').checked,
+
+                My_Classes:
+                    document.getElementById('perm-classes').checked
+            };
+
+            try {
+
+                const res = await fetch(
+                    '/api/save_teacher_permissions',
+                    {
+                        method: 'POST',
+
+                        headers: {
+                            'Content-Type':
+                                'application/json'
+                        },
+
+                        body: JSON.stringify({
+                            teacher_id: teacherId,
+                            permissions: permissions
+                        })
+                    }
+                );
+
+                const data = await res.json();
+
+                const message =
+                    document.getElementById(
+                        'permission-message'
+                    );
+
+                message.classList.remove('hidden');
+
+                if (data.status === 'success') {
+
+                    message.textContent =
+                        '✅ Permissions successfully save ho gayi!';
+
+                    message.className =
+                        'text-sm mt-4 text-center text-emerald-600 font-semibold';
+
+                } else {
+
+                    message.textContent =
+                        '❌ ' +
+                        (data.message ||
+                        'Permissions save nahi hui.');
+
+                    message.className =
+                        'text-sm mt-4 text-center text-rose-600 font-semibold';
+                }
+
+            } catch (error) {
+
+                console.error(
+                    'Permission save error:',
+                    error
+                );
+
+                alert(
+                    'Server se connection nahi ho paya.'
+                );
+            }
+        }
+            
             try {
                 const res = await fetch('/api/admin_summary');
                 const data = await res.json();
