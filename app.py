@@ -1512,11 +1512,12 @@ def scan_qr_attendance():
             ):
                 nearest_distance = distance
                 nearest_branch = branch
-
-            if distance <= 30:
-
-                valid_branch = True
-                break
+                
+                if distance <= 50 and (
+                    gps_accuracy is None or gps_accuracy <= 50
+                ):
+                    valid_branch = True
+                    break
 
         # ------------------------------------------
         # LOCATION NOT VALID
