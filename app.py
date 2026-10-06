@@ -80,134 +80,93 @@ def role_required(*allowed_roles):
     return decorator
 
 # --------------------------------------------------
-# TEACHER PERMISSIONS
+# TEACHER PERMISSION SYSTEM
 # --------------------------------------------------
 
-TEACHER_PERMISSION_FIELDS = [
-    "Attendance",
-    "Marks",
-    "Add_Student",
-    "Collect_Fee",
-    "Students",
-    "My_Classes"
-]
-
-
-def get_teacher_permissions(teacher_id):
+def get_current_teacher():
     """
-    Teacher_Permissions sheet se ek teacher ki permissions
-    return karta hai.
+    Logged-in user ka Teacher_Master record return karta hai.
+    Admin ke liye None return karega.
     """
 
-    default_permissions = {
-        permission: False
-        for permission in TEACHER_PERMISSION_FIELDS
-    }
+    email = str(
+        session.get('email', '')
+    ).strip().lower()
+
+    if not email:
+        return None
 
     try:
+        teacher_sheet = sheet.worksheet("Teacher_Master")
+        teachers = teacher_sheet.get_all_records()
+
+        for row in teachers:
+
+            row_email = str(
+                row.get('Email', '')
+            ).strip().lower()
+
+            if row_email == email:
+                return row
+
+    except Exception as e:
+        print(
+            f"Error in get_current_teacher: {str(e)}"
+        )
+
+    return None
+
+
+def teacher_has_permission(permission_name):
+    """
+    Check karta hai ki current user ko specific feature
+    access karne ki permission hai ya nahi.
+    """
+
+    # Admin ko automatically full access
+    if session.get('role') == 'Admin':
+        return True
+
+    teacher = get_current_teacher()
+
+    if not teacher:
+        return False
+
+    teacher_id = str(
+        teacher.get('Teacher_id', '')
+    ).strip()
+
+    if not teacher_id:
+        return False
+
+    try:
+
         permission_sheet = sheet.worksheet(
             "Teacher_Permissions"
         )
 
-        records = permission_sheet.get_all_records()
-
-        target_id = str(
-            teacher_id
-        ).strip().lower()
-
-        for row in records:
-
-            row_id = str(
-                row.get("Teacher_ID", "")
-            ).strip().lower()
-
-            if row_id == target_id:
-
-                permissions = {}
-
-                for permission in TEACHER_PERMISSION_FIELDS:
-
-                    value = str(
-                        row.get(permission, "")
-                    ).strip().lower()
-
-                    permissions[permission] = (
-                        value in [
-                            "true",
-                            "1",
-                            "yes",
-                            "on"
-                        ]
-                    )
-
-                return permissions
-
-        return default_permissions
-
-    except Exception as e:
-
-        print(
-            f"Permission read error: {str(e)}"
+        permissions = (
+            permission_sheet.get_all_records()
         )
 
-        return default_permissions
+        for row in permissions:
 
+            row_teacher_id = str(
+                row.get('Teacher_ID', '')
+            ).strip()
 
-def teacher_has_permission(permission):
-    """
-    Current logged-in teacher ke paas particular
-    permission hai ya nahi check karta hai.
-    """
+            if row_teacher_id == teacher_id:
 
-    # Admin ko complete access
-    if session.get("role") == "Admin":
-        return True
+                value = str(
+                    row.get(permission_name, 'No')
+                ).strip().lower()
 
-    if session.get("role") != "Teacher":
-        return False
-
-    teacher_email = str(
-        session.get("email", "")
-    ).strip().lower()
-
-    if not teacher_email:
-        return False
-
-    try:
-
-        teacher_sheet = sheet.worksheet(
-            "Teacher_Master"
-        )
-
-        teachers = teacher_sheet.get_all_records()
-
-        teacher_id = None
-
-        for teacher in teachers:
-
-            email = str(
-                teacher.get("Email", "")
-            ).strip().lower()
-
-            if email == teacher_email:
-
-                teacher_id = str(
-                    teacher.get("Teacher_id", "")
-                ).strip()
-
-                break
-
-        if not teacher_id:
-            return False
-
-        permissions = get_teacher_permissions(
-            teacher_id
-        )
-
-        return permissions.get(
-            permission,
-            False
-        )
+                return value in [
+                    'yes',
+                    'true',
+                    '1',
+                    'allowed'
+                ]
 
     except Exception as e:
 
@@ -216,6 +175,40 @@ def teacher_has_permission(permission):
         )
 
         return False
+
+    # Permission row nahi mila
+    return False
+
+
+def permission_required(permission_name):
+
+    """
+    Page/API ko specific permission se protect karta hai.
+    """
+
+    def decorator(f):
+
+        @wraps(f)
+        def decorated_function(*args, **kwargs):
+
+            if 'logged_in' not in session:
+                return redirect(
+                    url_for('login')
+                )
+
+            if not teacher_has_permission(
+                permission_name
+            ):
+
+                return render_template(
+                    'unauthorized.html'
+                ), 403
+
+            return f(*args, **kwargs)
+
+        return decorated_function
+
+    return decorator
 
 # --------------------------------------------------
 # PAGE ROUTES
