@@ -966,7 +966,7 @@ def save_marks():
 # --------------------------------------------------
 
 @app.route('/api/admin_summary')
-@login_required
+@role_required('Admin')
 def admin_summary():
 
     try:
