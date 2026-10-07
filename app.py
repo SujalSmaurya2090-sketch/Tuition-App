@@ -1142,89 +1142,16 @@ def admin_summary():
 
 
 
-@app.route('/api/save_teacher_permissions', methods=['POST'])
-@login_required
-def save_teacher_permissions():
-    try:
-        data = request.json or {}
-
-        teacher_id = str(
-            data.get('teacher_id', '')
-        ).strip()
-
-        permissions = data.get('permissions', {})
-
-        if not teacher_id:
-            return jsonify({
-                'status': 'error',
-                'message': 'Teacher ID required'
-            }), 400
-
-        # Teacher_Assignments sheet
-        permissions_sheet = sheet.worksheet("Teacher_Assignments")
-
-        records = permissions_sheet.get_all_records()
-
-        # Find existing teacher row
-        existing_row = None
-
-        for index, row in enumerate(records, start=2):
-
-            row_teacher_id = str(
-                row.get('Teacher_ID', '')
-            ).strip()
-
-            if row_teacher_id == teacher_id:
-                existing_row = index
-                break
-
-        values = [
-            teacher_id,
-            bool(permissions.get('Attendance', False)),
-            bool(permissions.get('Fees', False)),
-            bool(permissions.get('Marks', False)),
-            bool(permissions.get('Students', False)),
-            bool(permissions.get('Scanner', False)),
-            bool(permissions.get('My_Classes', False))
-        ]
-
-        # Existing teacher → update
-        if existing_row:
-
-            permissions_sheet.update(
-                f'A{existing_row}:G{existing_row}',
-                [values]
-            )
-
-        # New teacher → create row
-        else:
-
-            permissions_sheet.append_row(values)
-
-        return jsonify({
-            'status': 'success',
-            'message': 'Teacher permissions saved successfully'
-        })
-
-    except Exception as e:
-
-        print(
-            f"Error in save_teacher_permissions: {str(e)}"
-        )
-
-        return jsonify({
-            'status': 'error',
-            'message': str(e)
-        }), 500
-
-# =========================================================
+# --------------------------------------------------
 # TEACHER PERMISSIONS
-# =========================================================
+# --------------------------------------------------
 
 @app.route('/api/get_teacher_permissions')
 @login_required
 def get_teacher_permissions():
+
     try:
+
         teacher_id = str(
             request.args.get('teacher_id', '')
         ).strip()
@@ -1235,7 +1162,10 @@ def get_teacher_permissions():
                 'message': 'Teacher ID required'
             }), 400
 
-        permissions_sheet = sheet.worksheet("Teacher_Permissions")
+        permissions_sheet = sheet.worksheet(
+            "Teacher_Permissions"
+        )
+
         records = permissions_sheet.get_all_records()
 
         default_permissions = {
@@ -1256,29 +1186,29 @@ def get_teacher_permissions():
             if row_teacher_id == teacher_id:
 
                 permissions = {
-                    'Attendance': str(
-                        row.get('Attendance', '')
-                    ).lower() == 'true',
+                    'Attendance':
+                        str(row.get('Attendance', '')).lower()
+                        in ['true', 'yes', '1', 'allowed'],
 
-                    'Marks': str(
-                        row.get('Marks', '')
-                    ).lower() == 'true',
+                    'Marks':
+                        str(row.get('Marks', '')).lower()
+                        in ['true', 'yes', '1', 'allowed'],
 
-                    'Add_Student': str(
-                        row.get('Add_Student', '')
-                    ).lower() == 'true',
+                    'Add_Student':
+                        str(row.get('Add_Student', '')).lower()
+                        in ['true', 'yes', '1', 'allowed'],
 
-                    'Collect_Fee': str(
-                        row.get('Collect_Fee', '')
-                    ).lower() == 'true',
+                    'Collect_Fee':
+                        str(row.get('Collect_Fee', '')).lower()
+                        in ['true', 'yes', '1', 'allowed'],
 
-                    'Students': str(
-                        row.get('Students', '')
-                    ).lower() == 'true',
+                    'Students':
+                        str(row.get('Students', '')).lower()
+                        in ['true', 'yes', '1', 'allowed'],
 
-                    'My_Classes': str(
-                        row.get('My_Classes', '')
-                    ).lower() == 'true'
+                    'My_Classes':
+                        str(row.get('My_Classes', '')).lower()
+                        in ['true', 'yes', '1', 'allowed']
                 }
 
                 return jsonify({
@@ -1306,6 +1236,7 @@ def get_teacher_permissions():
 @app.route('/api/save_teacher_permissions', methods=['POST'])
 @login_required
 def save_teacher_permissions():
+
     try:
 
         data = request.json or {}
@@ -1314,15 +1245,18 @@ def save_teacher_permissions():
             data.get('teacher_id', '')
         ).strip()
 
-        permissions = data.get('permissions', {})
+        permissions = data.get(
+            'permissions',
+            {}
+        )
 
         if not teacher_id:
+
             return jsonify({
                 'status': 'error',
                 'message': 'Teacher ID required'
             }), 400
 
-        # Teacher_Permissions sheet
         permissions_sheet = sheet.worksheet(
             "Teacher_Permissions"
         )
@@ -1331,18 +1265,23 @@ def save_teacher_permissions():
 
         existing_row = None
 
-        # Find teacher
-        for index, row in enumerate(records, start=2):
+        # Find existing teacher
+        for index, row in enumerate(
+            records,
+            start=2
+        ):
 
             row_teacher_id = str(
                 row.get('Teacher_ID', '')
             ).strip()
 
             if row_teacher_id == teacher_id:
+
                 existing_row = index
                 break
 
         values = [
+
             teacher_id,
 
             bool(
@@ -1399,11 +1338,15 @@ def save_teacher_permissions():
         # New teacher → create
         else:
 
-            permissions_sheet.append_row(values)
+            permissions_sheet.append_row(
+                values,
+                value_input_option='USER_ENTERED'
+            )
 
         return jsonify({
             'status': 'success',
-            'message': 'Teacher permissions saved successfully'
+            'message':
+                'Teacher permissions saved successfully'
         })
 
     except Exception as e:
