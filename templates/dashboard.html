@@ -388,203 +388,220 @@
 
     async function loadTeacherPermissions() {
 
-        const teacherId =
-            document.getElementById(
-                'permission-teacher'
-            ).value;
+    const teacherId =
+        document.getElementById(
+            'permission-teacher'
+        ).value;
 
-        const options =
-            document.getElementById(
-                'permissions-options'
+    const options =
+        document.getElementById(
+            'permissions-options'
+        );
+
+    if (!teacherId) {
+
+        options.classList.add('hidden');
+
+        return;
+    }
+
+    options.classList.remove('hidden');
+
+    // Reset checkboxes
+    document.getElementById(
+        'perm-attendance'
+    ).checked = false;
+
+    document.getElementById(
+        'perm-marks'
+    ).checked = false;
+
+    document.getElementById(
+        'perm-add-student'
+    ).checked = false;
+
+    document.getElementById(
+        'perm-collect-fee'
+    ).checked = false;
+
+    document.getElementById(
+        'perm-students'
+    ).checked = false;
+
+    document.getElementById(
+        'perm-classes'
+    ).checked = false;
+
+    try {
+
+        const res = await fetch(
+            `/api/get_teacher_permissions?teacher_id=${encodeURIComponent(teacherId)}`
+        );
+
+        const data = await res.json();
+
+        if (data.status !== 'success') {
+
+            console.log(
+                'No saved permissions found yet.'
             );
-
-        if (!teacherId) {
-
-            options.classList.add('hidden');
 
             return;
         }
 
-        options.classList.remove('hidden');
+        const permissions =
+            data.permissions || {};
 
-        // Reset checkboxes first
-        document.getElementById('perm-attendance').checked = false;
-        document.getElementById('perm-fees').checked = false;
-        document.getElementById('perm-marks').checked = false;
-        document.getElementById('perm-students').checked = false;
-        document.getElementById('perm-scanner').checked = false;
-        document.getElementById('perm-classes').checked = false;
+        document.getElementById(
+            'perm-attendance'
+        ).checked =
+            !!permissions.Attendance;
 
-        try {
+        document.getElementById(
+            'perm-marks'
+        ).checked =
+            !!permissions.Marks;
 
-            const res = await fetch(
-                `/api/get_teacher_permissions?teacher_id=${encodeURIComponent(teacherId)}`
-            );
+        document.getElementById(
+            'perm-add-student'
+        ).checked =
+            !!permissions.Add_Student;
 
-            const data = await res.json();
+        document.getElementById(
+            'perm-collect-fee'
+        ).checked =
+            !!permissions.Collect_Fee;
 
-            if (data.status !== 'success') {
+        document.getElementById(
+            'perm-students'
+        ).checked =
+            !!permissions.Students;
 
-                console.log(
-                    'No saved permissions found yet.'
-                );
+        document.getElementById(
+            'perm-classes'
+        ).checked =
+            !!permissions.My_Classes;
 
-                return;
-            }
+    } catch (error) {
 
-            const permissions =
-                data.permissions || {};
-
-            document.getElementById(
-                'perm-attendance'
-            ).checked =
-                !!permissions.Attendance;
-
-            document.getElementById(
-                'perm-fees'
-            ).checked =
-                !!permissions.Fees;
-
-            document.getElementById(
-                'perm-marks'
-            ).checked =
-                !!permissions.Marks;
-
-            document.getElementById(
-                'perm-students'
-            ).checked =
-                !!permissions.Students;
-
-            document.getElementById(
-                'perm-scanner'
-            ).checked =
-                !!permissions.Scanner;
-
-            document.getElementById(
-                'perm-classes'
-            ).checked =
-                !!permissions.My_Classes;
-
-        } catch (error) {
-
-            console.error(
-                'Permission loading error:',
-                error
-            );
-        }
+        console.error(
+            'Permission loading error:',
+            error
+        );
     }
+}
 
 
     async function saveTeacherPermissions() {
 
-        const teacherId =
+    const teacherId =
+        document.getElementById(
+            'permission-teacher'
+        ).value;
+
+    if (!teacherId) {
+
+        alert(
+            'Pehle teacher select karein.'
+        );
+
+        return;
+    }
+
+    const permissions = {
+
+        Attendance:
             document.getElementById(
-                'permission-teacher'
-            ).value;
+                'perm-attendance'
+            ).checked,
 
-        if (!teacherId) {
+        Marks:
+            document.getElementById(
+                'perm-marks'
+            ).checked,
 
-            alert(
-                'Pehle teacher select karein.'
+        Add_Student:
+            document.getElementById(
+                'perm-add-student'
+            ).checked,
+
+        Collect_Fee:
+            document.getElementById(
+                'perm-collect-fee'
+            ).checked,
+
+        Students:
+            document.getElementById(
+                'perm-students'
+            ).checked,
+
+        My_Classes:
+            document.getElementById(
+                'perm-classes'
+            ).checked
+    };
+
+    try {
+
+        const res = await fetch(
+            '/api/save_teacher_permissions',
+            {
+                method: 'POST',
+
+                headers: {
+                    'Content-Type':
+                        'application/json'
+                },
+
+                body: JSON.stringify({
+                    teacher_id: teacherId,
+                    permissions: permissions
+                })
+            }
+        );
+
+        const data = await res.json();
+
+        const message =
+            document.getElementById(
+                'permission-message'
             );
 
-            return;
-        }
+        message.classList.remove('hidden');
 
-        const permissions = {
+        if (data.status === 'success') {
 
-            Attendance:
-                document.getElementById(
-                    'perm-attendance'
-                ).checked,
+            message.textContent =
+                '✅ Permissions successfully save ho gayi!';
 
-            Fees:
-                document.getElementById(
-                    'perm-fees'
-                ).checked,
+            message.className =
+                'text-sm mt-4 text-center text-emerald-600 font-semibold';
 
-            Marks:
-                document.getElementById(
-                    'perm-marks'
-                ).checked,
+        } else {
 
-            Students:
-                document.getElementById(
-                    'perm-students'
-                ).checked,
-
-            Scanner:
-                document.getElementById(
-                    'perm-scanner'
-                ).checked,
-
-            My_Classes:
-                document.getElementById(
-                    'perm-classes'
-                ).checked
-        };
-
-        try {
-
-            const res = await fetch(
-                '/api/save_teacher_permissions',
-                {
-                    method: 'POST',
-
-                    headers: {
-                        'Content-Type':
-                            'application/json'
-                    },
-
-                    body: JSON.stringify({
-                        teacher_id: teacherId,
-                        permissions: permissions
-                    })
-                }
-            );
-
-            const data = await res.json();
-
-            const message =
-                document.getElementById(
-                    'permission-message'
+            message.textContent =
+                '❌ ' +
+                (
+                    data.message ||
+                    'Permissions save nahi hui.'
                 );
 
-            message.classList.remove('hidden');
-
-            if (data.status === 'success') {
-
-                message.textContent =
-                    '✅ Permissions successfully save ho gayi!';
-
-                message.className =
-                    'text-sm mt-4 text-center text-emerald-600 font-semibold';
-
-            } else {
-
-                message.textContent =
-                    '❌ ' +
-                    (
-                        data.message ||
-                        'Permissions save nahi hui.'
-                    );
-
-                message.className =
-                    'text-sm mt-4 text-center text-rose-600 font-semibold';
-            }
-
-        } catch (error) {
-
-            console.error(
-                'Permission save error:',
-                error
-            );
-
-            alert(
-                'Server se connection nahi ho paya.'
-            );
+            message.className =
+                'text-sm mt-4 text-center text-rose-600 font-semibold';
         }
+
+    } catch (error) {
+
+        console.error(
+            'Permission save error:',
+            error
+        );
+
+        alert(
+            'Server se connection nahi ho paya.'
+        );
     }
+}
 
 
     // =====================================================
