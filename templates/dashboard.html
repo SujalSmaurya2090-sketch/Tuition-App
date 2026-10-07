@@ -206,8 +206,9 @@
 
             <!-- Permissions -->
             <div id="permissions-options"
-                 class="hidden grid grid-cols-1 sm:grid-cols-2 gap-3">
+                class="hidden grid grid-cols-1 sm:grid-cols-2 gap-3">
 
+                <!-- Attendance -->
                 <label class="flex items-center gap-3 p-3 border rounded-lg">
                     <input
                         type="checkbox"
@@ -215,15 +216,7 @@
                         class="w-4 h-4">
                     <span class="font-medium">Attendance</span>
                 </label>
-
-                <label class="flex items-center gap-3 p-3 border rounded-lg">
-                    <input
-                        type="checkbox"
-                        id="perm-fees"
-                        class="w-4 h-4">
-                    <span class="font-medium">Fee Collection</span>
-                </label>
-
+                <!-- Marks -->
                 <label class="flex items-center gap-3 p-3 border rounded-lg">
                     <input
                         type="checkbox"
@@ -231,7 +224,26 @@
                         class="w-4 h-4">
                     <span class="font-medium">Marks Entry</span>
                 </label>
-
+                
+                <!-- Add Student -->
+                <label class="flex items-center gap-3 p-3 border rounded-lg">
+                    <input
+                        type="checkbox"
+                        id="perm-add-student"
+                        class="w-4 h-4">
+                    <span class="font-medium">Add Student</span>
+                </label>
+                
+                <!-- Collect Fee -->
+                <label class="flex items-center gap-3 p-3 border rounded-lg">
+                    <input
+                        type="checkbox"
+                        id="perm-collect-fee"
+                        class="w-4 h-4">
+                    <span class="font-medium">Collect Fee</span>
+                </label>
+                
+                <!-- Students -->
                 <label class="flex items-center gap-3 p-3 border rounded-lg">
                     <input
                         type="checkbox"
@@ -239,15 +251,8 @@
                         class="w-4 h-4">
                     <span class="font-medium">Student Directory</span>
                 </label>
-
-                <label class="flex items-center gap-3 p-3 border rounded-lg">
-                    <input
-                        type="checkbox"
-                        id="perm-scanner"
-                        class="w-4 h-4">
-                    <span class="font-medium">Attendance Scanner</span>
-                </label>
-
+                
+                <!-- My Classes -->
                 <label class="flex items-center gap-3 p-3 border rounded-lg">
                     <input
                         type="checkbox"
@@ -255,12 +260,10 @@
                         class="w-4 h-4">
                     <span class="font-medium">My Classes</span>
                 </label>
-
             </div>
-
+            
             <!-- Save -->
             <div class="flex justify-end gap-3 mt-6">
-
                 <button
                     onclick="closePermissionsPanel()"
                     class="px-4 py-2 rounded-lg bg-slate-200 hover:bg-slate-300 text-slate-700">
