@@ -118,25 +118,62 @@ def get_current_teacher():
 
 
 def teacher_has_permission(permission_name):
-    """
-    Check karta hai ki current user ko specific feature
-    access karne ki permission hai ya nahi.
-    """
+    try:
+        teacher = get_current_teacher()
 
-    # Admin ko automatically full access
-    if session.get('role') == 'Admin':
-        return True
+        if not teacher:
+            return False
 
-    teacher = get_current_teacher()
+        # Teacher ID ko different possible header names se safely read karo
+        teacher_id = str(
+            teacher.get('Teacher_ID')
+            or teacher.get('Teacher_Id')
+            or teacher.get('Teacher_id')
+            or teacher.get('teacher_id')
+            or ''
+        ).strip()
 
-    if not teacher:
+        if not teacher_id:
+            print("Permission check failed: Teacher ID not found")
+            print("Teacher data:", teacher)
+            return False
+
+        permissions_sheet = sheet.worksheet("Teacher_Permissions")
+        records = permissions_sheet.get_all_records()
+
+        for row in records:
+
+            row_teacher_id = str(
+                row.get('Teacher_ID')
+                or row.get('Teacher_Id')
+                or row.get('Teacher_id')
+                or row.get('teacher_id')
+                or ''
+            ).strip()
+
+            if row_teacher_id == teacher_id:
+
+                value = str(
+                    row.get(permission_name, '')
+                ).strip().lower()
+
+                allowed_values = [
+                    'true',
+                    'yes',
+                    '1',
+                    'allowed',
+                    'active'
+                ]
+
+                return value in allowed_values
+
+        print(
+            f"Permission row not found for Teacher ID: {teacher_id}"
+        )
         return False
 
-    teacher_id = str(
-        teacher.get('Teacher_id', '')
-    ).strip()
-
-    if not teacher_id:
+    except Exception as e:
+        print(f"Error checking teacher permission: {str(e)}")
         return False
 
     try:
