@@ -1082,62 +1082,7 @@ let assignmentTeachers = [];
 // -----------------------------------------------------
 
 async function loadAssignmentTeachers() {
-
-    const select =
-        document.getElementById('assignment-teacher');
-
-    if (!select) return;
-
-    select.innerHTML =
-        '<option value="">Loading teachers...</option>';
-
-    try {
-
-        const res =
-            await fetch('/api/admin/teachers');
-
-        const data =
-            await res.json();
-
-        if (data.status !== 'success') {
-            throw new Error(
-                data.message || 'Unable to load teachers'
-            );
-        }
-
-        assignmentTeachers =
-            data.teachers || [];
-
-        select.innerHTML =
-            '<option value="">-- Select Teacher --</option>';
-
-        assignmentTeachers.forEach(teacher => {
-
-            const option =
-                document.createElement('option');
-
-            option.value =
-                teacher.teacher_id;
-
-            option.textContent =
-                `${teacher.teacher_name} (${teacher.teacher_id})`;
-
-            option.dataset.teacherName =
-                teacher.teacher_name;
-
-            select.appendChild(option);
-        });
-
-    } catch (error) {
-
-        console.error(
-            'Assignment teacher loading error:',
-            error
-        );
-
-        select.innerHTML =
-            '<option value="">Unable to load teachers</option>';
-    }
+    return;
 }
 
 
@@ -1169,53 +1114,7 @@ function setAssignmentTeacherName() {
 // -----------------------------------------------------
 
 async function loadAssignmentClasses() {
-
-    const select =
-        document.getElementById('assignment-class');
-
-    if (!select) return;
-
-    select.innerHTML =
-        '<option value="">Loading batches...</option>';
-
-    try {
-
-        const res =
-            await fetch('/api/admin/assignment_classes');
-
-        const data =
-            await res.json();
-
-        if (data.status !== 'success') {
-            throw new Error(
-                data.message || 'Unable to load batches'
-            );
-        }
-
-        select.innerHTML =
-            '<option value="">-- Select Batch --</option>';
-
-        (data.classes || []).forEach(className => {
-
-            const option =
-                document.createElement('option');
-
-            option.value = className;
-            option.textContent = className;
-
-            select.appendChild(option);
-        });
-
-    } catch (error) {
-
-        console.error(
-            'Assignment class loading error:',
-            error
-        );
-
-        select.innerHTML =
-            '<option value="">Unable to load batches</option>';
-    }
+    return;
 }
 
 
