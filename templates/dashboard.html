@@ -1082,7 +1082,25 @@ let assignmentTeachers = [];
 // -----------------------------------------------------
 
 async function loadAssignmentTeachers() {
-    return;
+    const select = document.getElementById('assignment-teacher');
+    if (!select) return;
+    try {
+        const res = await fetch('/api/admin_summary');
+        const data = await res.json();
+        if (data.status !== 'success') throw new Error(data.message || 'Unable to load teachers');
+        assignmentTeachers = data.teachers || [];
+        select.innerHTML = '<option value="">-- Select Teacher --</option>';
+        assignmentTeachers.forEach(teacher => {
+            const option = document.createElement('option');
+            option.value = teacher.teacher_id;
+            option.textContent = `${teacher.teacher_name} (${teacher.teacher_id})`;
+            option.dataset.teacherName = teacher.teacher_name;
+            select.appendChild(option);
+        });
+    } catch (error) {
+        console.error('Assignment teacher loading error:', error);
+        select.innerHTML = '<option value="">Unable to load teachers</option>';
+    }
 }
 
 
@@ -1114,7 +1132,23 @@ function setAssignmentTeacherName() {
 // -----------------------------------------------------
 
 async function loadAssignmentClasses() {
-    return;
+    const select = document.getElementById('assignment-class');
+    if (!select) return;
+    try {
+        const res = await fetch('/api/admin_summary');
+        const data = await res.json();
+        if (data.status !== 'success') throw new Error(data.message || 'Unable to load batches');
+        select.innerHTML = '<option value="">-- Select Batch --</option>';
+        (data.classes || []).forEach(className => {
+            const option = document.createElement('option');
+            option.value = className;
+            option.textContent = className;
+            select.appendChild(option);
+        });
+    } catch (error) {
+        console.error('Assignment class loading error:', error);
+        select.innerHTML = '<option value="">Unable to load batches</option>';
+    }
 }
 
 
@@ -1178,7 +1212,7 @@ async function saveTeacherAssignment() {
 
         const res =
             await fetch(
-                '/api/admin/teacher_assignments',
+                '/api/admin_summary',
                 {
                     method: 'POST',
 
@@ -1188,6 +1222,7 @@ async function saveTeacherAssignment() {
                     },
 
                     body: JSON.stringify({
+                        action: 'save_assignment',
 
                         teacher_id:
                             teacherId,
@@ -1311,9 +1346,7 @@ async function loadTeacherAssignments() {
     try {
 
         const res =
-            await fetch(
-                '/api/admin/teacher_assignments'
-            );
+            await fetch('/api/admin_summary');
 
         const data =
             await res.json();
@@ -1475,7 +1508,9 @@ function escapeAssignmentHTML(value) {
         () => {
 
             fetchAdminSummary();
-
+            loadAssignmentTeachers();
+            loadAssignmentClasses();
+            loadTeacherAssignments();
             fetchTeacherAttendance();
 
         }
