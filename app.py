@@ -373,110 +373,216 @@ def teacher_portal_page():
 
 @app.route('/get_classes')
 @app.route('/api/get_classes')
-@login_required
+@permission_required('Attendance')
 def get_classes():
-
     try:
+        # ADMIN = all classes
+        if session.get('role') == 'Admin':
+            wks = sheet.worksheet("Students")
+            records = wks.get_all_records()
 
-        wks = sheet.worksheet("Students")
-        records = wks.get_all_records()
+            classes = sorted(list({
+                str(r.get('Class', '')).strip()
+                for r in records
+                if str(r.get('Class', '')).strip()
+            }))
 
-        classes = sorted(
-            list(
-                set(
-                    [
-                        str(r.get('Class', '')).strip()
-                        for r in records
-                        if r.get('Class')
-                    ]
-                )
-            )
-        )
+            return jsonify({
+                "status": "success",
+                "classes": classes
+            })
 
-        if not classes:
-            classes = [
-                f"Class {i}"
-                for i in range(1, 13)
-            ]
+        # TEACHER = only assigned classes
+        teacher = get_current_teacher()
+
+        if not teacher:
+            return jsonify({
+                "status": "error",
+                "message": "Teacher profile not found"
+            }), 403
+
+        teacher_id = str(
+            teacher.get('Teacher_ID')
+            or teacher.get('Teacher_Id')
+            or ''
+        ).strip()
+
+        if not teacher_id:
+            return jsonify({
+                "status": "error",
+                "message": "Teacher ID not found"
+            }), 403
+
+        assignment_sheet = sheet.worksheet("Teacher_Assignments")
+        assignments = assignment_sheet.get_all_records()
+
+        assigned_classes = set()
+
+        for row in assignments:
+            row_teacher_id = str(
+                row.get('Teacher_Id')
+                or row.get('Teacher_ID')
+                or ''
+            ).strip()
+
+            row_class = str(
+                row.get('Class')
+                or ''
+            ).strip()
+
+            row_status = str(
+                row.get('Status')
+                or 'Active'
+            ).strip().lower()
+
+            if (
+                row_teacher_id == teacher_id
+                and row_class
+                and row_status == 'active'
+            ):
+                assigned_classes.add(row_class)
 
         return jsonify({
-            "classes": classes
+            "status": "success",
+            "classes": sorted(list(assigned_classes))
         })
 
-    except Exception:
-
-        default_classes = [
-            f"Class {i}"
-            for i in range(1, 13)
-        ]
+    except Exception as e:
+        print(f"Error in get_classes: {str(e)}")
 
         return jsonify({
-            "classes": default_classes
-        })
-
+            "status": "error",
+            "message": "Unable to load classes"
+        }), 500
 
 @app.route('/get_students/<path:class_name>')
-@login_required
+@permission_required('Attendance')
 def get_students_by_class(class_name):
-
     try:
+        requested_class = str(class_name).strip()
+
+        if not requested_class:
+            return jsonify({
+                "status": "error",
+                "message": "Class required"
+            }), 400
+
+        # -------------------------------------------------
+        # SECURITY CHECK
+        # Admin can access any class.
+        # Teacher can access only assigned class.
+        # -------------------------------------------------
+
+        if session.get('role') != 'Admin':
+
+            teacher = get_current_teacher()
+
+            if not teacher:
+                return jsonify({
+                    "status": "error",
+                    "message": "Teacher profile not found"
+                }), 403
+
+            teacher_id = str(
+                teacher.get('Teacher_ID')
+                or teacher.get('Teacher_Id')
+                or ''
+            ).strip()
+
+            assignment_sheet = sheet.worksheet(
+                "Teacher_Assignments"
+            )
+
+            assignments = assignment_sheet.get_all_records()
+
+            allowed = False
+
+            for row in assignments:
+
+                row_teacher_id = str(
+                    row.get('Teacher_Id')
+                    or row.get('Teacher_ID')
+                    or ''
+                ).strip()
+
+                row_class = str(
+                    row.get('Class')
+                    or ''
+                ).strip()
+
+                row_status = str(
+                    row.get('Status')
+                    or 'Active'
+                ).strip().lower()
+
+                if (
+                    row_teacher_id == teacher_id
+                    and row_class.lower() == requested_class.lower()
+                    and row_status == 'active'
+                ):
+                    allowed = True
+                    break
+
+            if not allowed:
+                return jsonify({
+                    "status": "error",
+                    "message": "You are not assigned to this class."
+                }), 403
+
+        # -------------------------------------------------
+        # LOAD STUDENTS
+        # -------------------------------------------------
 
         wks = sheet.worksheet("Students")
         records = wks.get_all_records()
 
         filtered_students = []
 
-        target = (
-            str(class_name)
-            .replace("Class", "")
-            .strip()
-            .lower()
-        )
-
         for r in records:
 
-            sheet_cls = str(
+            sheet_class = str(
                 r.get('Class', '')
             ).strip()
 
-            sheet_cls_clean = (
-                sheet_cls
-                .replace("Class", "")
-                .strip()
-                .lower()
-            )
+            status = str(
+                r.get('Status', 'Active')
+            ).strip().lower()
 
+            # EXACT class match
             if (
-                sheet_cls.lower()
-                == str(class_name).strip().lower()
-                or (
-                    target
-                    and target == sheet_cls_clean
-                )
-                or (
-                    target
-                    and target in sheet_cls_clean
-                )
+                sheet_class.lower() == requested_class.lower()
+                and status == 'active'
             ):
 
-                filtered_students.append({
-                    "Student_ID": str(
-                        r.get('Student_ID', '')
-                    ),
-                    "Full_Name": str(
-                        r.get('Full_Name', '')
-                    )
-                })
+                student_id = str(
+                    r.get('Student_ID', '')
+                ).strip()
+
+                student_name = str(
+                    r.get('Full_Name', '')
+                ).strip()
+
+                if student_id:
+                    filtered_students.append({
+                        "Student_ID": student_id,
+                        "Full_Name": student_name
+                    })
 
         return jsonify({
+            "status": "success",
             "students": filtered_students
         })
 
-    except Exception:
+    except Exception as e:
+
+        print(
+            f"Error in get_students_by_class: {str(e)}"
+        )
 
         return jsonify({
-            "students": []
-        })
+            "status": "error",
+            "message": "Unable to load students"
+        }), 500
 
 
 @app.route('/add_student', methods=['POST'])
@@ -694,17 +800,28 @@ def save_attendance():
     try:
 
         data = (
-            request.get_json(
-                force=True,
-                silent=True
-            )
+            request.get_json(silent=True)
             or request.form
             or {}
         )
 
-        wks = sheet.worksheet(
-            "Attendance_Log"
-        )
+        if not isinstance(data, dict):
+            return jsonify({
+                "status": "error",
+                "message": "Invalid attendance payload"
+            }), 400
+
+        class_name = str(
+            data.get('class_name')
+            or data.get('className')
+            or data.get('class')
+            or ''
+        ).strip()
+
+        att_date = str(
+            data.get('date')
+            or datetime.now().strftime("%Y-%m-%d")
+        ).strip()
 
         records = (
             data.get('attendance_data')
@@ -714,20 +831,285 @@ def save_attendance():
             or []
         )
 
-        if isinstance(data, list):
-            records = data
+        if not class_name:
+            return jsonify({
+                "status": "error",
+                "message": "Class is required"
+            }), 400
 
-        class_name = (
-            data.get('class_name')
-            or data.get('className')
-            or data.get('class')
-            or ''
+        if not records or not isinstance(records, list):
+            return jsonify({
+                "status": "error",
+                "message": "No attendance records received"
+            }), 400
+
+        # -------------------------------------------------
+        # DATE VALIDATION
+        # -------------------------------------------------
+
+        try:
+            datetime.strptime(att_date, "%Y-%m-%d")
+        except ValueError:
+            return jsonify({
+                "status": "error",
+                "message": "Invalid date format"
+            }), 400
+
+        # -------------------------------------------------
+        # TEACHER CLASS SECURITY
+        # -------------------------------------------------
+
+        if session.get('role') != 'Admin':
+
+            teacher = get_current_teacher()
+
+            if not teacher:
+                return jsonify({
+                    "status": "error",
+                    "message": "Teacher profile not found"
+                }), 403
+
+            teacher_id = str(
+                teacher.get('Teacher_ID')
+                or teacher.get('Teacher_Id')
+                or ''
+            ).strip()
+
+            assignment_sheet = sheet.worksheet(
+                "Teacher_Assignments"
+            )
+
+            assignments = assignment_sheet.get_all_records()
+
+            allowed = False
+
+            for row in assignments:
+
+                row_teacher_id = str(
+                    row.get('Teacher_Id')
+                    or row.get('Teacher_ID')
+                    or ''
+                ).strip()
+
+                row_class = str(
+                    row.get('Class')
+                    or ''
+                ).strip()
+
+                row_status = str(
+                    row.get('Status')
+                    or 'Active'
+                ).strip().lower()
+
+                if (
+                    row_teacher_id == teacher_id
+                    and row_class.lower() == class_name.lower()
+                    and row_status == 'active'
+                ):
+                    allowed = True
+                    break
+
+            if not allowed:
+                return jsonify({
+                    "status": "error",
+                    "message": "You are not assigned to this class."
+                }), 403
+
+        # -------------------------------------------------
+        # LOAD REAL STUDENT DATABASE
+        # -------------------------------------------------
+
+        students_sheet = sheet.worksheet("Students")
+        student_records = students_sheet.get_all_records()
+
+        valid_students = {}
+
+        for row in student_records:
+
+            row_class = str(
+                row.get('Class', '')
+            ).strip()
+
+            row_status = str(
+                row.get('Status', 'Active')
+            ).strip().lower()
+
+            student_id = str(
+                row.get('Student_ID', '')
+            ).strip()
+
+            student_name = str(
+                row.get('Full_Name', '')
+            ).strip()
+
+            if (
+                row_class.lower() == class_name.lower()
+                and row_status == 'active'
+                and student_id
+            ):
+                valid_students[student_id] = {
+                    "name": student_name,
+                    "class": row_class
+                }
+
+        # -------------------------------------------------
+        # VALIDATE EVERY ATTENDANCE RECORD
+        # -------------------------------------------------
+
+        clean_records = []
+        seen_student_ids = set()
+
+        for item in records:
+
+            if not isinstance(item, dict):
+                return jsonify({
+                    "status": "error",
+                    "message": "Invalid student attendance record"
+                }), 400
+
+            student_id = str(
+                item.get('student_id')
+                or item.get('Student_ID')
+                or item.get('id')
+                or ''
+            ).strip()
+
+            status = str(
+                item.get('status')
+                or item.get('Status')
+                or 'Present'
+            ).strip().title()
+
+            # Student must actually belong to this class
+            if student_id not in valid_students:
+                return jsonify({
+                    "status": "error",
+                    "message":
+                        f"Invalid student {student_id} "
+                        f"for {class_name}"
+                }), 400
+
+            # Prevent duplicate student in same request
+            if student_id in seen_student_ids:
+                return jsonify({
+                    "status": "error",
+                    "message":
+                        f"Duplicate attendance record for "
+                        f"{student_id}"
+                }), 400
+
+            if status not in ['Present', 'Absent']:
+                return jsonify({
+                    "status": "error",
+                    "message":
+                        f"Invalid attendance status for "
+                        f"{student_id}"
+                }), 400
+
+            seen_student_ids.add(student_id)
+
+            # IMPORTANT:
+            # Name comes from Students database,
+            # NOT from browser.
+            clean_records.append({
+                "student_id": student_id,
+                "student_name":
+                    valid_students[student_id]["name"],
+                "status": status
+            })
+
+        # -------------------------------------------------
+        # CHECK EXISTING ATTENDANCE
+        # -------------------------------------------------
+
+        attendance_sheet = sheet.worksheet(
+            "Attendance_Log"
         )
 
-        att_date = (
-            data.get('date')
-            or datetime.now().strftime("%Y-%m-%d")
+        existing_records = (
+            attendance_sheet.get_all_records()
         )
+
+        def normalize_date(value):
+            value = str(value).strip()
+
+            for fmt in [
+                "%Y-%m-%d",
+                "%m/%d/%Y",
+                "%d/%m/%Y",
+                "%Y/%m/%d"
+            ]:
+                try:
+                    return datetime.strptime(
+                        value,
+                        fmt
+                    ).strftime("%Y-%m-%d")
+                except ValueError:
+                    pass
+
+            return value
+
+        existing_keys = set()
+
+        for row in existing_records:
+
+            existing_date = normalize_date(
+                row.get('Date', '')
+            )
+
+            existing_class = str(
+                row.get('Class', '')
+            ).strip().lower()
+
+            existing_student_id = str(
+                row.get('Student_ID', '')
+            ).strip()
+
+            if (
+                existing_date == att_date
+                and existing_class == class_name.lower()
+                and existing_student_id
+            ):
+                existing_keys.add(
+                    (
+                        existing_date,
+                        existing_class,
+                        existing_student_id
+                    )
+                )
+
+        # -------------------------------------------------
+        # DUPLICATE PROTECTION
+        # -------------------------------------------------
+
+        duplicate_students = []
+
+        for item in clean_records:
+
+            key = (
+                att_date,
+                class_name.lower(),
+                item["student_id"]
+            )
+
+            if key in existing_keys:
+                duplicate_students.append(
+                    item["student_name"]
+                )
+
+        if duplicate_students:
+
+            return jsonify({
+                "status": "error",
+                "message":
+                    "Attendance already exists for "
+                    f"{att_date} in {class_name} for: "
+                    + ", ".join(duplicate_students[:10])
+            }), 409
+
+        # -------------------------------------------------
+        # CREATE LOG ROWS
+        # -------------------------------------------------
 
         marked_by = session.get(
             'email',
@@ -738,46 +1120,17 @@ def save_attendance():
             "%Y-%m-%d %H:%M:%S"
         )
 
-        if not records:
-
-            try:
-
-                raw_body = json.loads(
-                    request.data
-                )
-
-                records = raw_body.get(
-                    'attendance_data',
-                    raw_body.get(
-                        'records',
-                        []
-                    )
-                )
-
-            except:
-
-                pass
-
-        if not records:
-
-            return jsonify({
-                "status": "error",
-                "message":
-                    "Payload Empty! Browser Refresh "
-                    "(Ctrl+F5) karke dubara try karein."
-            }), 400
-
-        all_vals = [
-            r
-            for r in wks.get_all_values()
-            if any(r)
+        all_values = [
+            row
+            for row in attendance_sheet.get_all_values()
+            if any(row)
         ]
 
-        counter = len(all_vals)
+        counter = len(all_values)
 
         rows_to_append = []
 
-        for item in records:
+        for item in clean_records:
 
             counter += 1
 
@@ -787,73 +1140,44 @@ def save_attendance():
                 f"{counter:03d}"
             )
 
-            s_id = (
-                item.get('student_id')
-                or item.get('Student_ID')
-                or item.get('id')
-                or ''
-            )
-
-            s_name = (
-                item.get('student_name')
-                or item.get('Student_Name')
-                or item.get('name')
-                or ''
-            )
-
-            status = (
-                item.get('status')
-                or item.get('Status')
-                or 'Present'
-            )
-
-            item_cls = (
-                item.get('class_name')
-                or item.get('class')
-                or class_name
-            )
-
             rows_to_append.append([
                 log_id,
                 att_date,
-                item_cls,
-                s_id,
-                s_name,
-                status,
+                class_name,
+                item["student_id"],
+                item["student_name"],
+                item["status"],
                 marked_by,
                 now_ts,
-                "Unlocked"
+                "Locked"
             ])
 
-        if rows_to_append:
+        # -------------------------------------------------
+        # SAVE
+        # -------------------------------------------------
 
-            wks.append_rows(
-                rows_to_append,
-                value_input_option='USER_ENTERED'
-            )
+        attendance_sheet.append_rows(
+            rows_to_append,
+            value_input_option='USER_ENTERED'
+        )
 
-            return jsonify({
-                "status": "success",
-                "message":
-                    f"{len(rows_to_append)} "
-                    "Students ki Attendance save ho gayi!"
-            })
-
-        else:
-
-            return jsonify({
-                "status": "error",
-                "message":
-                    "No valid rows generated"
-            }), 400
+        return jsonify({
+            "status": "success",
+            "message":
+                f"{len(rows_to_append)} Students ki "
+                "Attendance successfully save ho gayi!"
+        })
 
     except Exception as e:
+
+        print(
+            f"Error in save_attendance: {str(e)}"
+        )
 
         return jsonify({
             "status": "error",
             "message": str(e)
         }), 500
-
 
 @app.route('/save_marks', methods=['POST'])
 @permission_required('Marks')
