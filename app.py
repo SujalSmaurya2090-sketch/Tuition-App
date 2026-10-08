@@ -2452,6 +2452,264 @@ def scan_qr_attendance():
             'message': str(e)
         }), 500
 
+@app.route('/api/admin/teachers')
+@role_required('Admin')
+def admin_get_teachers():
+    try:
+        wks = sheet.worksheet("Teacher_Master")
+        records = wks.get_all_records()
+
+        teachers = []
+
+        for row in records:
+            teacher_id = str(
+                row.get('Teacher_ID', '')
+            ).strip()
+
+            teacher_name = str(
+                row.get('Teacher_Name', '')
+            ).strip()
+
+            email = str(
+                row.get('Email', '')
+            ).strip()
+
+            status = str(
+                row.get('Status', 'Active')
+            ).strip()
+
+            if teacher_id and teacher_name:
+                teachers.append({
+                    "teacher_id": teacher_id,
+                    "teacher_name": teacher_name,
+                    "email": email,
+                    "status": status
+                })
+
+        return jsonify({
+            "status": "success",
+            "teachers": teachers
+        })
+
+    except Exception as e:
+        print(f"Error loading teachers: {str(e)}")
+        return jsonify({
+            "status": "error",
+            "message": str(e)
+        }), 500
+
+@app.route('/api/admin/assignment_classes')
+@role_required('Admin')
+def admin_assignment_classes():
+    try:
+        wks = sheet.worksheet("Students")
+        records = wks.get_all_records()
+
+        classes = sorted(list({
+            str(row.get('Class', '')).strip()
+            for row in records
+            if str(row.get('Class', '')).strip()
+        }))
+
+        return jsonify({
+            "status": "success",
+            "classes": classes
+        })
+
+    except Exception as e:
+        print(f"Error loading assignment classes: {str(e)}")
+        return jsonify({
+            "status": "error",
+            "message": str(e)
+        }), 500
+
+@app.route('/api/admin/teacher_assignments', methods=['GET', 'POST'])
+@role_required('Admin')
+def admin_teacher_assignments():
+
+    try:
+        assignment_sheet = sheet.worksheet(
+            "Teacher_Assignments"
+        )
+
+        # -----------------------------
+        # GET EXISTING ASSIGNMENTS
+        # -----------------------------
+        if request.method == 'GET':
+
+            records = assignment_sheet.get_all_records()
+
+            assignments = []
+
+            for row in records:
+                assignments.append({
+                    "assignment_id": str(
+                        row.get('Assignment_ID', '')
+                    ),
+                    "teacher_id": str(
+                        row.get('Teacher_Id', '')
+                    ),
+                    "teacher_name": str(
+                        row.get('Teacher_Name', '')
+                    ),
+                    "branch": str(
+                        row.get('Branch', '')
+                    ),
+                    "class": str(
+                        row.get('Class', '')
+                    ),
+                    "medium": str(
+                        row.get('Medium', '')
+                    ),
+                    "subject": str(
+                        row.get('Subject', '')
+                    ),
+                    "status": str(
+                        row.get('Status', '')
+                    )
+                })
+
+            return jsonify({
+                "status": "success",
+                "assignments": assignments
+            })
+
+        # -----------------------------
+        # CREATE ASSIGNMENT
+        # -----------------------------
+
+        data = request.get_json(silent=True) or {}
+
+        teacher_id = str(
+            data.get('teacher_id', '')
+        ).strip()
+
+        teacher_name = str(
+            data.get('teacher_name', '')
+        ).strip()
+
+        branch = str(
+            data.get('branch', '')
+        ).strip()
+
+        class_name = str(
+            data.get('class_name', '')
+        ).strip()
+
+        medium = str(
+            data.get('medium', '')
+        ).strip()
+
+        subject = str(
+            data.get('subject', '')
+        ).strip()
+
+        if not teacher_id or not class_name:
+            return jsonify({
+                "status": "error",
+                "message": "Teacher and Batch/Class are required."
+            }), 400
+
+        # -----------------------------
+        # DUPLICATE CHECK
+        # -----------------------------
+
+        records = assignment_sheet.get_all_records()
+
+        for row in records:
+
+            same_teacher = (
+                str(row.get('Teacher_Id', '')).strip()
+                == teacher_id
+            )
+
+            same_class = (
+                str(row.get('Class', '')).strip().lower()
+                == class_name.lower()
+            )
+
+            same_subject = (
+                str(row.get('Subject', '')).strip().lower()
+                == subject.lower()
+            )
+
+            same_status = (
+                str(row.get('Status', 'Active')).strip().lower()
+                == 'active'
+            )
+
+            if (
+                same_teacher
+                and same_class
+                and same_subject
+                and same_status
+            ):
+                return jsonify({
+                    "status": "error",
+                    "message":
+                        "This teacher is already assigned "
+                        "to this class and subject."
+                }), 409
+
+        # -----------------------------
+        # NEW ASSIGNMENT ID
+        # -----------------------------
+
+        numbers = []
+
+        for row in records:
+            assignment_id = str(
+                row.get('Assignment_ID', '')
+            ).strip()
+
+            if assignment_id.startswith('A'):
+                try:
+                    numbers.append(
+                        int(assignment_id[1:])
+                    )
+                except:
+                    pass
+
+        next_number = (
+            max(numbers) + 1
+            if numbers
+            else 1
+        )
+
+        assignment_id = f"A{next_number:03d}"
+
+        # -----------------------------
+        # SAVE
+        # -----------------------------
+
+        assignment_sheet.append_row([
+            assignment_id,
+            teacher_id,
+            teacher_name,
+            branch,
+            class_name,
+            medium,
+            subject,
+            "Active"
+        ], value_input_option='USER_ENTERED')
+
+        return jsonify({
+            "status": "success",
+            "message": "Teacher assignment saved successfully.",
+            "assignment_id": assignment_id
+        })
+
+    except Exception as e:
+
+        print(
+            f"Error in teacher assignments: {str(e)}"
+        )
+
+        return jsonify({
+            "status": "error",
+            "message": str(e)
+        }), 500
+
 
 # --------------------------------------------------
 # SCANNER PAGE
