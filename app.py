@@ -559,6 +559,73 @@ def add_student():
             "message": str(e)
         }), 500
 
+@app.route('/api/students')
+@permission_required('Students')
+def get_students():
+
+    try:
+
+        wks = sheet.worksheet("Students")
+
+        records = wks.get_all_records()
+
+        students = []
+
+        for row in records:
+
+            student_id = str(
+                row.get('Student_ID', '')
+            ).strip()
+
+            if not student_id:
+                continue
+
+            students.append({
+
+                'id': student_id,
+
+                'name': str(
+                    row.get('Full_Name', '')
+                ).strip(),
+
+                'class': str(
+                    row.get('Class', '')
+                ).strip(),
+
+                'contact': str(
+                    row.get('Parent_Contact', '')
+                ).strip(),
+
+                'fee': str(
+                    row.get('Monthly_Fee', '')
+                ).strip(),
+
+                'status': str(
+                    row.get('Status', 'Active')
+                ).strip(),
+
+                'joining_date': str(
+                    row.get('Joining_Date', '')
+                ).strip()
+
+            })
+
+        return jsonify({
+            'status': 'success',
+            'students': students
+        })
+
+    except Exception as e:
+
+        print(
+            f"Error in get_students: {str(e)}"
+        )
+
+        return jsonify({
+            'status': 'error',
+            'message': str(e)
+        }), 500
+
 
 @app.route('/save_fee', methods=['POST'])
 @permission_required('Fees')
