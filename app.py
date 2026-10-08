@@ -441,6 +441,8 @@ def get_classes():
         teacher_id = str(
             teacher.get('Teacher_ID')
             or teacher.get('Teacher_Id')
+            or teacher.get('Teacher_id')
+            or teacher.get('teacher_id')
             or ''
         ).strip()
 
@@ -459,6 +461,8 @@ def get_classes():
             row_teacher_id = str(
                 row.get('Teacher_Id')
                 or row.get('Teacher_ID')
+                or row.get('Teacher_id')
+                or row.get('teacher_id')
                 or ''
             ).strip()
 
@@ -1407,6 +1411,52 @@ def admin_summary():
             att_sheet.get_all_records()
         )
 
+        # Assignment bootstrap for the MVP. The dashboard can use this
+        # existing endpoint even if separately added API routes are not
+        # available in the currently running deployment.
+        teacher_sheet = sheet.worksheet('Teacher_Master')
+        teacher_records = teacher_sheet.get_all_records()
+        teachers = []
+        for row in teacher_records:
+            teacher_id = str(
+                row.get('Teacher_ID') or row.get('Teacher_Id')
+                or row.get('Teacher_id') or row.get('teacher_id') or ''
+            ).strip()
+            teacher_name = str(
+                row.get('Teacher_Name') or row.get('Full_Name')
+                or row.get('Name') or ''
+            ).strip()
+            if teacher_id and teacher_name:
+                teachers.append({
+                    'teacher_id': teacher_id,
+                    'teacher_name': teacher_name,
+                    'email': str(row.get('Email') or '').strip(),
+                    'status': str(row.get('Status') or 'Active').strip()
+                })
+
+        students_sheet = sheet.worksheet('Students')
+        student_records = students_sheet.get_all_records()
+        classes = sorted(list({
+            str(row.get('Class') or '').strip()
+            for row in student_records
+            if str(row.get('Class') or '').strip()
+        }))
+
+        assignment_sheet = sheet.worksheet('Teacher_Assignments')
+        assignment_records = assignment_sheet.get_all_records()
+        assignments = []
+        for row in assignment_records:
+            assignments.append({
+                'assignment_id': str(row.get('Assignment_ID') or '').strip(),
+                'teacher_id': str(row.get('Teacher_Id') or row.get('Teacher_ID') or row.get('Teacher_id') or '').strip(),
+                'teacher_name': str(row.get('Teacher_Name') or row.get('Full_Name') or '').strip(),
+                'branch': str(row.get('Branch') or '').strip(),
+                'class': str(row.get('Class') or '').strip(),
+                'medium': str(row.get('Medium') or '').strip(),
+                'subject': str(row.get('Subject') or '').strip(),
+                'status': str(row.get('Status') or '').strip()
+            })
+
         absent_list = []
         today_present = 0
         today_absent = 0
@@ -1557,7 +1607,11 @@ def admin_summary():
                 list(reversed(recent_marks)),
 
             'recent_fees':
-                list(reversed(recent_fees))
+                list(reversed(recent_fees)),
+
+            'teachers': teachers,
+            'classes': classes,
+            'assignments': assignments
         })
 
     except Exception as e:
@@ -2500,11 +2554,13 @@ def admin_get_teachers():
 
         for row in records:
             teacher_id = str(
-                row.get('Teacher_ID', '')
+                row.get('Teacher_ID') or row.get('Teacher_Id')
+                or row.get('Teacher_id') or row.get('teacher_id') or ''
             ).strip()
 
             teacher_name = str(
-                row.get('Teacher_Name', '')
+                row.get('Teacher_Name') or row.get('Full_Name')
+                or row.get('Name') or ''
             ).strip()
 
             email = str(
