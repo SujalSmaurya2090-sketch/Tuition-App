@@ -91,6 +91,178 @@
             </button>
         </div>
 
+<!-- =====================================================
+     TEACHER CLASS / BATCH ASSIGNMENT
+     ===================================================== -->
+
+<div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+
+    <div class="flex flex-wrap justify-between items-center gap-3 mb-5">
+        <div>
+            <h2 class="text-lg font-bold text-slate-800">
+                👨‍🏫 Teacher Class / Batch Assignment
+            </h2>
+            <p class="text-sm text-slate-500 mt-1">
+                Teacher ko uski assigned class, batch aur subject dein.
+            </p>
+        </div>
+
+        <button
+            onclick="loadTeacherAssignments()"
+            class="bg-slate-100 hover:bg-slate-200 text-slate-700 px-4 py-2 rounded-lg text-sm font-medium">
+            🔄 Refresh
+        </button>
+    </div>
+
+    <!-- Assignment Form -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+
+        <!-- Teacher -->
+        <div>
+            <label class="block text-sm font-semibold text-slate-700 mb-2">
+                Teacher
+            </label>
+
+            <select
+                id="assignment-teacher"
+                onchange="setAssignmentTeacherName()"
+                class="w-full border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+
+                <option value="">
+                    -- Select Teacher --
+                </option>
+
+            </select>
+        </div>
+
+        <!-- Branch -->
+        <div>
+            <label class="block text-sm font-semibold text-slate-700 mb-2">
+                Branch
+            </label>
+
+            <input
+                id="assignment-branch"
+                type="text"
+                placeholder="e.g. Main"
+                class="w-full border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+        </div>
+
+        <!-- Class / Batch -->
+        <div>
+            <label class="block text-sm font-semibold text-slate-700 mb-2">
+                Class / Batch
+            </label>
+
+            <select
+                id="assignment-class"
+                class="w-full border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+
+                <option value="">
+                    -- Select Batch --
+                </option>
+
+            </select>
+        </div>
+
+        <!-- Medium -->
+        <div>
+            <label class="block text-sm font-semibold text-slate-700 mb-2">
+                Medium
+            </label>
+
+            <select
+                id="assignment-medium"
+                class="w-full border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+
+                <option value="">-- Select Medium --</option>
+                <option value="Gujarati">Gujarati</option>
+                <option value="English">English</option>
+                <option value="Hindi">Hindi</option>
+
+            </select>
+        </div>
+
+        <!-- Subject -->
+        <div>
+            <label class="block text-sm font-semibold text-slate-700 mb-2">
+                Subject
+            </label>
+
+            <input
+                id="assignment-subject"
+                type="text"
+                placeholder="e.g. Maths"
+                class="w-full border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+        </div>
+
+        <!-- Save -->
+        <div class="flex items-end">
+
+            <button
+                onclick="saveTeacherAssignment()"
+                class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-4 py-2 rounded-lg shadow-sm">
+                ➕ Assign Teacher
+            </button>
+
+        </div>
+
+    </div>
+
+    <!-- Message -->
+    <p
+        id="assignment-message"
+        class="hidden text-sm text-center font-semibold mt-4">
+    </p>
+
+
+    <!-- Existing Assignments -->
+    <div class="mt-7">
+
+        <h3 class="font-bold text-slate-800 mb-3">
+            Current Teacher Assignments
+        </h3>
+
+        <div class="overflow-x-auto">
+
+            <table class="w-full text-left text-sm">
+
+                <thead class="bg-slate-50 text-slate-600 uppercase text-xs">
+
+                    <tr>
+                        <th class="p-3">ID</th>
+                        <th class="p-3">Teacher</th>
+                        <th class="p-3">Branch</th>
+                        <th class="p-3">Class / Batch</th>
+                        <th class="p-3">Medium</th>
+                        <th class="p-3">Subject</th>
+                        <th class="p-3">Status</th>
+                    </tr>
+
+                </thead>
+
+                <tbody
+                    id="tbl-assignments"
+                    class="divide-y divide-slate-100 text-slate-700">
+
+                    <tr>
+                        <td
+                            colspan="7"
+                            class="p-4 text-center text-slate-400">
+                            Loading assignments...
+                        </td>
+                    </tr>
+
+                </tbody>
+
+            </table>
+
+        </div>
+
+    </div>
+
+</div>
+
         <!-- Dashboard Data Grids -->
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
             
