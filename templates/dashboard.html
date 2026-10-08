@@ -1070,6 +1070,503 @@
     }
 
 
+// =====================================================
+// TEACHER CLASS / BATCH ASSIGNMENT
+// =====================================================
+
+let assignmentTeachers = [];
+
+
+// -----------------------------------------------------
+// LOAD TEACHERS
+// -----------------------------------------------------
+
+async function loadAssignmentTeachers() {
+
+    const select =
+        document.getElementById('assignment-teacher');
+
+    if (!select) return;
+
+    select.innerHTML =
+        '<option value="">Loading teachers...</option>';
+
+    try {
+
+        const res =
+            await fetch('/api/admin/teachers');
+
+        const data =
+            await res.json();
+
+        if (data.status !== 'success') {
+            throw new Error(
+                data.message || 'Unable to load teachers'
+            );
+        }
+
+        assignmentTeachers =
+            data.teachers || [];
+
+        select.innerHTML =
+            '<option value="">-- Select Teacher --</option>';
+
+        assignmentTeachers.forEach(teacher => {
+
+            const option =
+                document.createElement('option');
+
+            option.value =
+                teacher.teacher_id;
+
+            option.textContent =
+                `${teacher.teacher_name} (${teacher.teacher_id})`;
+
+            option.dataset.teacherName =
+                teacher.teacher_name;
+
+            select.appendChild(option);
+        });
+
+    } catch (error) {
+
+        console.error(
+            'Assignment teacher loading error:',
+            error
+        );
+
+        select.innerHTML =
+            '<option value="">Unable to load teachers</option>';
+    }
+}
+
+
+// -----------------------------------------------------
+// SET TEACHER NAME
+// -----------------------------------------------------
+
+function setAssignmentTeacherName() {
+
+    const select =
+        document.getElementById('assignment-teacher');
+
+    if (!select) return;
+
+    const option =
+        select.options[select.selectedIndex];
+
+    if (!option) return;
+
+    console.log(
+        'Selected teacher:',
+        option.dataset.teacherName || ''
+    );
+}
+
+
+// -----------------------------------------------------
+// LOAD BATCHES / CLASSES
+// -----------------------------------------------------
+
+async function loadAssignmentClasses() {
+
+    const select =
+        document.getElementById('assignment-class');
+
+    if (!select) return;
+
+    select.innerHTML =
+        '<option value="">Loading batches...</option>';
+
+    try {
+
+        const res =
+            await fetch('/api/admin/assignment_classes');
+
+        const data =
+            await res.json();
+
+        if (data.status !== 'success') {
+            throw new Error(
+                data.message || 'Unable to load batches'
+            );
+        }
+
+        select.innerHTML =
+            '<option value="">-- Select Batch --</option>';
+
+        (data.classes || []).forEach(className => {
+
+            const option =
+                document.createElement('option');
+
+            option.value = className;
+            option.textContent = className;
+
+            select.appendChild(option);
+        });
+
+    } catch (error) {
+
+        console.error(
+            'Assignment class loading error:',
+            error
+        );
+
+        select.innerHTML =
+            '<option value="">Unable to load batches</option>';
+    }
+}
+
+
+// -----------------------------------------------------
+// SAVE ASSIGNMENT
+// -----------------------------------------------------
+
+async function saveTeacherAssignment() {
+
+    const teacherSelect =
+        document.getElementById('assignment-teacher');
+
+    const branch =
+        document.getElementById('assignment-branch').value.trim();
+
+    const className =
+        document.getElementById('assignment-class').value.trim();
+
+    const medium =
+        document.getElementById('assignment-medium').value.trim();
+
+    const subject =
+        document.getElementById('assignment-subject').value.trim();
+
+    const message =
+        document.getElementById('assignment-message');
+
+
+    const teacherId =
+        teacherSelect.value;
+
+    const selectedOption =
+        teacherSelect.options[
+            teacherSelect.selectedIndex
+        ];
+
+    const teacherName =
+        selectedOption?.dataset.teacherName || '';
+
+
+    // -----------------------------
+    // VALIDATION
+    // -----------------------------
+
+    if (!teacherId) {
+
+        alert('Pehle teacher select karein.');
+
+        return;
+    }
+
+    if (!className) {
+
+        alert('Pehle Batch / Class select karein.');
+
+        return;
+    }
+
+
+    try {
+
+        const res =
+            await fetch(
+                '/api/admin/teacher_assignments',
+                {
+                    method: 'POST',
+
+                    headers: {
+                        'Content-Type':
+                            'application/json'
+                    },
+
+                    body: JSON.stringify({
+
+                        teacher_id:
+                            teacherId,
+
+                        teacher_name:
+                            teacherName,
+
+                        branch:
+                            branch,
+
+                        class_name:
+                            className,
+
+                        medium:
+                            medium,
+
+                        subject:
+                            subject
+                    })
+                }
+            );
+
+
+        const data =
+            await res.json();
+
+
+        message.classList.remove('hidden');
+
+
+        if (data.status === 'success') {
+
+            message.textContent =
+                '✅ Teacher successfully assigned!';
+
+            message.className =
+                'text-sm text-center font-semibold mt-4 text-emerald-600';
+
+
+            // Clear form
+
+            teacherSelect.value = '';
+
+            document.getElementById(
+                'assignment-branch'
+            ).value = '';
+
+            document.getElementById(
+                'assignment-class'
+            ).value = '';
+
+            document.getElementById(
+                'assignment-medium'
+            ).value = '';
+
+            document.getElementById(
+                'assignment-subject'
+            ).value = '';
+
+
+            // Refresh table
+
+            loadTeacherAssignments();
+
+
+        } else {
+
+            message.textContent =
+                '❌ ' +
+                (
+                    data.message ||
+                    'Assignment save nahi hua.'
+                );
+
+            message.className =
+                'text-sm text-center font-semibold mt-4 text-rose-600';
+        }
+
+
+    } catch (error) {
+
+        console.error(
+            'Assignment save error:',
+            error
+        );
+
+        message.classList.remove('hidden');
+
+        message.textContent =
+            '❌ Server se connection nahi ho paya.';
+
+        message.className =
+            'text-sm text-center font-semibold mt-4 text-rose-600';
+    }
+}
+
+
+// -----------------------------------------------------
+// LOAD EXISTING ASSIGNMENTS
+// -----------------------------------------------------
+
+async function loadTeacherAssignments() {
+
+    const tbody =
+        document.getElementById(
+            'tbl-assignments'
+        );
+
+    if (!tbody) return;
+
+
+    tbody.innerHTML =
+        `<tr>
+            <td colspan="7"
+                class="p-4 text-center text-slate-400">
+                Loading assignments...
+            </td>
+        </tr>`;
+
+
+    try {
+
+        const res =
+            await fetch(
+                '/api/admin/teacher_assignments'
+            );
+
+        const data =
+            await res.json();
+
+
+        if (data.status !== 'success') {
+
+            throw new Error(
+                data.message ||
+                'Unable to load assignments'
+            );
+        }
+
+
+        const assignments =
+            data.assignments || [];
+
+
+        if (assignments.length === 0) {
+
+            tbody.innerHTML =
+                `<tr>
+                    <td colspan="7"
+                        class="p-4 text-center text-slate-400">
+                        No teacher assignments found.
+                    </td>
+                </tr>`;
+
+            return;
+        }
+
+
+        tbody.innerHTML =
+            assignments.map(
+                assignment => {
+
+                    const isActive =
+                        String(
+                            assignment.status || ''
+                        ).toLowerCase()
+                        === 'active';
+
+
+                    return `
+                        <tr class="hover:bg-slate-50">
+
+                            <td class="p-3 text-xs font-semibold text-slate-500">
+                                ${escapeAssignmentHTML(
+                                    assignment.assignment_id
+                                )}
+                            </td>
+
+                            <td class="p-3">
+
+                                <div class="font-medium text-slate-800">
+                                    ${escapeAssignmentHTML(
+                                        assignment.teacher_name
+                                    )}
+                                </div>
+
+                                <div class="text-xs text-slate-400">
+                                    ${escapeAssignmentHTML(
+                                        assignment.teacher_id
+                                    )}
+                                </div>
+
+                            </td>
+
+                            <td class="p-3">
+                                ${escapeAssignmentHTML(
+                                    assignment.branch || '-'
+                                )}
+                            </td>
+
+                            <td class="p-3 font-medium">
+                                ${escapeAssignmentHTML(
+                                    assignment.class || '-'
+                                )}
+                            </td>
+
+                            <td class="p-3">
+                                ${escapeAssignmentHTML(
+                                    assignment.medium || '-'
+                                )}
+                            </td>
+
+                            <td class="p-3">
+                                ${escapeAssignmentHTML(
+                                    assignment.subject || '-'
+                                )}
+                            </td>
+
+                            <td class="p-3">
+
+                                <span class="
+                                    text-xs
+                                    font-bold
+                                    px-2.5
+                                    py-1
+                                    rounded-full
+                                    ${
+                                        isActive
+                                        ? 'bg-emerald-100 text-emerald-700'
+                                        : 'bg-slate-100 text-slate-500'
+                                    }
+                                ">
+                                    ${escapeAssignmentHTML(
+                                        assignment.status || '-'
+                                    )}
+                                </span>
+
+                            </td>
+
+                        </tr>
+                    `;
+                }
+            ).join('');
+
+
+    } catch (error) {
+
+        console.error(
+            'Assignment loading error:',
+            error
+        );
+
+        tbody.innerHTML =
+            `<tr>
+                <td colspan="7"
+                    class="p-4 text-center text-rose-500">
+                    Assignments load nahi ho payi.
+                </td>
+            </tr>`;
+    }
+}
+
+
+// -----------------------------------------------------
+// SAFE HTML ESCAPE
+// -----------------------------------------------------
+
+function escapeAssignmentHTML(value) {
+
+    return String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+}
+
+
     // =====================================================
     // INITIALIZE DASHBOARD
     // =====================================================
