@@ -1394,38 +1394,149 @@ def save_marks():
 
 
 # --------------------------------------------------
-# ADMIN SUMMARY
+# ADMIN SUMMARY + ASSIGNMENT MVP
 # --------------------------------------------------
 
-@app.route('/api/admin_summary')
+@app.route('/api/admin_summary', methods=['GET', 'POST'])
 @role_required('Admin')
 def admin_summary():
-
     try:
+        def get_records(sheet_name):
+            try:
+                return sheet.worksheet(sheet_name).get_all_records()
+            except Exception as e:
+                print(f"[ADMIN SUMMARY] Optional sheet '{sheet_name}' unavailable: {e}")
+                return []
 
-        att_sheet = sheet.worksheet(
-            "Attendance_Log"
-        )
+        def get_or_create_assignment_sheet():
+            try:
+                return sheet.worksheet("Teacher_Assignments")
+            except Exception:
+                print("[ADMIN SUMMARY] Teacher_Assignments sheet missing. Creating it.")
+                wks = sheet.add_worksheet(
+                    title="Teacher_Assignments",
+                    rows=1000,
+                    cols=8
+                )
+                wks.append_row([
+                    "Assignment_ID",
+                    "Teacher_Id",
+                    "Teacher_Name",
+                    "Branch",
+                    "Class",
+                    "Medium",
+                    "Subject",
+                    "Status"
+                ], value_input_option='USER_ENTERED')
+                return wks
 
-        att_records = (
-            att_sheet.get_all_records()
-        )
+        # -------------------------
+        # SAVE ASSIGNMENT
+        # -------------------------
+        if request.method == 'POST':
+            data = request.get_json(silent=True) or {}
 
-        # Assignment bootstrap for the MVP. The dashboard can use this
-        # existing endpoint even if separately added API routes are not
-        # available in the currently running deployment.
-        teacher_sheet = sheet.worksheet('Teacher_Master')
-        teacher_records = teacher_sheet.get_all_records()
+            if data.get('action') != 'save_assignment':
+                return jsonify({
+                    'status': 'error',
+                    'message': 'Unknown admin action.'
+                }), 400
+
+            teacher_id = str(data.get('teacher_id', '')).strip()
+            teacher_name = str(data.get('teacher_name', '')).strip()
+            branch = str(data.get('branch', '')).strip() or 'Main'
+            class_name = str(data.get('class_name', '')).strip()
+            medium = str(data.get('medium', '')).strip()
+            subject = str(data.get('subject', '')).strip()
+
+            if not teacher_id or not class_name or not subject:
+                return jsonify({
+                    'status': 'error',
+                    'message': 'Teacher, Batch/Class and Subject are required.'
+                }), 400
+
+            assignment_sheet = get_or_create_assignment_sheet()
+            records = assignment_sheet.get_all_records()
+
+            for row in records:
+                row_teacher = str(
+                    row.get('Teacher_Id')
+                    or row.get('Teacher_ID')
+                    or row.get('Teacher_id')
+                    or ''
+                ).strip()
+
+                row_class = str(row.get('Class') or '').strip()
+                row_subject = str(row.get('Subject') or '').strip()
+                row_status = str(row.get('Status') or 'Active').strip().lower()
+
+                if (
+                    row_teacher == teacher_id
+                    and row_class.lower() == class_name.lower()
+                    and row_subject.lower() == subject.lower()
+                    and row_status == 'active'
+                ):
+                    return jsonify({
+                        'status': 'error',
+                        'message': 'This teacher is already assigned to this class and subject.'
+                    }), 409
+
+            numbers = []
+            for row in records:
+                aid = str(row.get('Assignment_ID') or '').strip()
+                if aid.startswith('A'):
+                    try:
+                        numbers.append(int(aid[1:]))
+                    except Exception:
+                        pass
+
+            assignment_id = f"A{(max(numbers) + 1 if numbers else 1):03d}"
+
+            assignment_sheet.append_row([
+                assignment_id,
+                teacher_id,
+                teacher_name,
+                branch,
+                class_name,
+                medium,
+                subject,
+                'Active'
+            ], value_input_option='USER_ENTERED')
+
+            return jsonify({
+                'status': 'success',
+                'message': 'Teacher assignment saved successfully.',
+                'assignment_id': assignment_id
+            })
+
+        # -------------------------
+        # LOAD ADMIN DASHBOARD DATA
+        # -------------------------
+
+        att_records = get_records("Attendance_Log")
+        marks_records = get_records("Marks_Log")
+        fees_records = get_records("Fees_Log")
+
+        # Teachers
+        teacher_records = get_records("Teacher_Master")
         teachers = []
+
         for row in teacher_records:
             teacher_id = str(
-                row.get('Teacher_ID') or row.get('Teacher_Id')
-                or row.get('Teacher_id') or row.get('teacher_id') or ''
+                row.get('Teacher_ID')
+                or row.get('Teacher_Id')
+                or row.get('Teacher_id')
+                or row.get('teacher_id')
+                or ''
             ).strip()
+
             teacher_name = str(
-                row.get('Teacher_Name') or row.get('Full_Name')
-                or row.get('Name') or ''
+                row.get('Teacher_Name')
+                or row.get('Full_Name')
+                or row.get('Name')
+                or ''
             ).strip()
+
             if teacher_id and teacher_name:
                 teachers.append({
                     'teacher_id': teacher_id,
@@ -1434,199 +1545,126 @@ def admin_summary():
                     'status': str(row.get('Status') or 'Active').strip()
                 })
 
-        students_sheet = sheet.worksheet('Students')
-        student_records = students_sheet.get_all_records()
+        # Classes / batches
+        student_records = get_records("Students")
         classes = sorted(list({
             str(row.get('Class') or '').strip()
             for row in student_records
             if str(row.get('Class') or '').strip()
         }))
 
-        assignment_sheet = sheet.worksheet('Teacher_Assignments')
-        assignment_records = assignment_sheet.get_all_records()
+        # Assignments
         assignments = []
-        for row in assignment_records:
-            assignments.append({
-                'assignment_id': str(row.get('Assignment_ID') or '').strip(),
-                'teacher_id': str(row.get('Teacher_Id') or row.get('Teacher_ID') or row.get('Teacher_id') or '').strip(),
-                'teacher_name': str(row.get('Teacher_Name') or row.get('Full_Name') or '').strip(),
-                'branch': str(row.get('Branch') or '').strip(),
-                'class': str(row.get('Class') or '').strip(),
-                'medium': str(row.get('Medium') or '').strip(),
-                'subject': str(row.get('Subject') or '').strip(),
-                'status': str(row.get('Status') or '').strip()
-            })
+        try:
+            assignment_records = get_or_create_assignment_sheet().get_all_records()
+            for row in assignment_records:
+                assignments.append({
+                    'assignment_id': str(row.get('Assignment_ID') or '').strip(),
+                    'teacher_id': str(
+                        row.get('Teacher_Id')
+                        or row.get('Teacher_ID')
+                        or row.get('Teacher_id')
+                        or ''
+                    ).strip(),
+                    'teacher_name': str(
+                        row.get('Teacher_Name')
+                        or row.get('Full_Name')
+                        or ''
+                    ).strip(),
+                    'branch': str(row.get('Branch') or '').strip(),
+                    'class': str(row.get('Class') or '').strip(),
+                    'medium': str(row.get('Medium') or '').strip(),
+                    'subject': str(row.get('Subject') or '').strip(),
+                    'status': str(row.get('Status') or '').strip()
+                })
+        except Exception as e:
+            print(f"[ADMIN SUMMARY] Assignment load error: {e}")
 
-        absent_list = []
+        # Attendance summary
         today_present = 0
         today_absent = 0
+        absent_list = []
 
         if att_records:
-
-            latest_date = str(
-                att_records[-1].get(
-                    'Date',
-                    ''
-                )
-            ).strip()
+            dates = [
+                str(r.get('Date') or '').strip()
+                for r in att_records
+                if str(r.get('Date') or '').strip()
+            ]
+            latest_date = max(dates) if dates else ''
 
             for row in att_records:
+                if str(row.get('Date') or '').strip() != latest_date:
+                    continue
 
-                row_date = str(
-                    row.get(
-                        'Date',
-                        ''
-                    )
-                ).strip()
+                status = str(row.get('Status') or '').strip().lower()
 
-                if row_date == latest_date:
+                if status == 'present':
+                    today_present += 1
+                elif status == 'absent':
+                    today_absent += 1
+                    absent_list.append({
+                        'student_id': row.get('Student_ID'),
+                        'name': row.get('Student_Name'),
+                        'class': row.get('Class')
+                    })
 
-                    status = str(
-                        row.get(
-                            'Status',
-                            ''
-                        )
-                    ).strip().lower()
-
-                    if status == 'absent':
-
-                        today_absent += 1
-
-                        absent_list.append({
-                            'student_id':
-                                row.get('Student_ID'),
-
-                            'name':
-                                row.get('Student_Name'),
-
-                            'class':
-                                row.get('Class')
-                        })
-
-                    elif status == 'present':
-
-                        today_present += 1
-
-        marks_sheet = sheet.worksheet(
-            "Marks_Log"
-        )
-
-        marks_records = (
-            marks_sheet.get_all_records()
-        )
-
+        # Recent marks
         recent_marks = []
-
         for row in marks_records[-10:]:
-
             recent_marks.append({
-                'date':
-                    row.get('Date'),
-
-                'class':
-                    row.get('Class'),
-
-                'subject':
-                    row.get('Subject'),
-
-                'test_title':
-                    row.get('Test_Title'),
-
-                'name':
-                    row.get('Student_Name'),
-
-                'obtained':
-                    row.get('Obtained_Marks'),
-
-                'total':
-                    row.get('Total_Marks')
+                'date': row.get('Date'),
+                'class': row.get('Class'),
+                'subject': row.get('Subject'),
+                'test_title': row.get('Test_Title'),
+                'name': row.get('Student_Name'),
+                'obtained': row.get('Obtained_Marks'),
+                'total': row.get('Total_Marks')
             })
 
-        fees_sheet = sheet.worksheet(
-            "Fees_Log"
-        )
-
-        fees_records = (
-            fees_sheet.get_all_records()
-        )
-
+        # Fees
         recent_fees = []
         total_collection = 0
 
         for row in fees_records:
-
-            amt = float(
-                str(
-                    row.get(
-                        'Amount_Paid',
-                        0
-                    )
+            raw_amount = str(row.get('Amount_Paid', 0) or 0)
+            try:
+                amount = float(
+                    raw_amount.replace('₹', '').replace(',', '').strip() or 0
                 )
-                .replace('₹', '')
-                .replace(',', '')
-                .strip()
-                or 0
-            )
-
-            total_collection += amt
+            except Exception:
+                amount = 0
+            total_collection += amount
 
         for row in fees_records[-10:]:
-
             recent_fees.append({
-                'date':
-                    row.get('Payment_Date'),
-
-                'name':
-                    row.get('Student_Name'),
-
-                'class':
-                    row.get('Class'),
-
-                'amount':
-                    row.get('Amount_Paid'),
-
-                'mode':
-                    row.get('Payment_Mode')
+                'date': row.get('Payment_Date'),
+                'name': row.get('Student_Name'),
+                'class': row.get('Class'),
+                'amount': row.get('Amount_Paid'),
+                'mode': row.get('Payment_Mode')
             })
 
         return jsonify({
             'status': 'success',
-            'today_present':
-                today_present,
-
-            'today_absent':
-                today_absent,
-
-            'total_collection':
-                total_collection,
-
-            'absent_students':
-                absent_list,
-
-            'recent_marks':
-                list(reversed(recent_marks)),
-
-            'recent_fees':
-                list(reversed(recent_fees)),
-
+            'today_present': today_present,
+            'today_absent': today_absent,
+            'total_collection': total_collection,
+            'absent_students': absent_list,
+            'recent_marks': list(reversed(recent_marks)),
+            'recent_fees': list(reversed(recent_fees)),
             'teachers': teachers,
             'classes': classes,
             'assignments': assignments
         })
 
     except Exception as e:
-
+        print(f"[ADMIN SUMMARY FATAL] {type(e).__name__}: {e}")
         return jsonify({
             'status': 'error',
-            'message': str(e)
+            'message': f'Admin dashboard error: {str(e)}'
         }), 500
 
-
-
-
-# --------------------------------------------------
-# TEACHER PERMISSIONS
-# --------------------------------------------------
 
 @app.route('/api/get_teacher_permissions')
 @login_required
