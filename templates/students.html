@@ -1,137 +1,818 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>New Student Registration</title>
+
+    <meta name="viewport"
+          content="width=device-width, initial-scale=1.0">
+
+    <title>Students - AMPLE VISION ACADEMY</title>
+
     <script src="https://cdn.tailwindcss.com"></script>
+
     <style>
-        /* Container ko full screen & responsive banane ke liye */
         body {
-            margin: 0;
-            padding: 10px;
-            box-sizing: border-box;
             font-family: Arial, sans-serif;
         }
 
-        .container, .form-container, .card {
-            width: 100% !important;
-            max-width: 600px;
-            margin: 0 auto;
-            padding: 15px;
-            box-sizing: border-box;
-        }
-
-        /* Form inputs & buttons ko mobile friendly sizing dene ke liye */
-        input[type="text"],
-        input[type="number"],
-        input[type="date"],
-        input[type="tel"],
+        input,
         select,
         button {
-            width: 100% !important;
-            height: 45px;
-            font-size: 16px !important;
-            margin-bottom: 12px;
-            box-sizing: border-box;
-            border-radius: 8px;
+            min-height: 44px;
         }
 
-        /* Mobile Screens ke liye Extra Tuning */
-        @media screen and (max-width: 768px) {
-            body {
-                padding: 5px;
-            }
-
-            .form-group {
-                width: 100% !important;
-                display: block;
-            }
-        }
-
-        .table-responsive {
-            width: 100%;
+        .table-scroll {
             overflow-x: auto;
             -webkit-overflow-scrolling: touch;
         }
     </style>
 </head>
-<body class="bg-gray-100 min-h-screen p-4">
-    <div class="max-w-xl mx-auto bg-white rounded-xl shadow-md p-6">
-        <div class="flex justify-between items-center mb-6 border-b pb-2">
-            <h2 class="text-2xl font-bold text-gray-800">👤 Add New Student</h2>
-            <a href="/" class="text-indigo-600 hover:underline font-semibold">← Dashboard</a>
+
+<body class="bg-slate-100 min-h-screen">
+
+    <!-- HEADER -->
+    <header class="bg-white border-b sticky top-0 z-20">
+
+        <div class="max-w-7xl mx-auto px-4 py-4">
+
+            <div class="flex flex-col sm:flex-row
+                        sm:items-center sm:justify-between gap-3">
+
+                <div>
+                    <h1 class="text-2xl font-bold text-slate-800">
+                        👨‍🎓 Students
+                    </h1>
+
+                    <p class="text-sm text-slate-500">
+                        AMPLE VISION ACADEMY
+                    </p>
+                </div>
+
+                <a href="/"
+                   class="text-indigo-600 font-semibold">
+                    ← Dashboard
+                </a>
+
+            </div>
+
         </div>
 
-        <form id="studentForm" onsubmit="registerStudent(event)" class="space-y-4">
-            <div>
-                <label class="block font-semibold text-gray-700">Full Name:</label>
-                <input type="text" id="fullName" required class="w-full border-2 border-gray-300 rounded-lg p-2 font-medium" placeholder="e.g. Ramesh Patel">
+    </header>
+
+
+    <main class="max-w-7xl mx-auto px-4 py-6">
+
+
+        <!-- TOP STATS -->
+
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+
+            <div class="bg-white rounded-xl shadow-sm p-5">
+                <p class="text-sm text-slate-500">
+                    Total Students
+                </p>
+
+                <p id="totalStudents"
+                   class="text-3xl font-bold text-indigo-600 mt-1">
+                    0
+                </p>
             </div>
 
-            <div>
-                <label class="block font-semibold text-gray-700">Class / Batch:</label>
-                <input type="text" id="className" required class="w-full border-2 border-gray-300 rounded-lg p-2 font-medium" placeholder="e.g. 10th Science">
+
+            <div class="bg-white rounded-xl shadow-sm p-5">
+
+                <p class="text-sm text-slate-500">
+                    Active Students
+                </p>
+
+                <p id="activeStudents"
+                   class="text-3xl font-bold text-emerald-600 mt-1">
+                    0
+                </p>
+
             </div>
 
-            <div>
-                <label class="block font-semibold text-gray-700">Parent Contact Mobile:</label>
-                <input type="tel" id="parentContact" required class="w-full border-2 border-gray-300 rounded-lg p-2 font-medium" placeholder="e.g. 9876543210">
+
+            <div class="bg-white rounded-xl shadow-sm p-5">
+
+                <p class="text-sm text-slate-500">
+                    Students Found
+                </p>
+
+                <p id="foundStudents"
+                   class="text-3xl font-bold text-slate-700 mt-1">
+                    0
+                </p>
+
             </div>
 
-            <div>
-                <label class="block font-semibold text-gray-700">Monthly Fee Amount (₹):</label>
-                <input type="number" id="monthlyFee" required class="w-full border-2 border-gray-300 rounded-lg p-2 font-medium" placeholder="e.g. 1500">
+        </div>
+
+
+
+        <!-- ADD STUDENT -->
+
+        <div class="bg-white rounded-xl shadow-sm p-6 mb-6">
+
+            <div class="flex items-center justify-between mb-5">
+
+                <div>
+                    <h2 class="text-xl font-bold text-slate-800">
+                        ➕ Add New Student
+                    </h2>
+
+                    <p class="text-sm text-slate-500">
+                        Student ko sirf ek baar database mein add karein.
+                    </p>
+                </div>
+
             </div>
 
-            <div>
-                <label class="block font-semibold text-gray-700">Joining Date:</label>
-                <input type="date" id="joiningDate" required class="w-full border-2 border-gray-300 rounded-lg p-2 font-medium">
+
+            <form id="studentForm"
+                  onsubmit="registerStudent(event)"
+                  class="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+
+                <!-- NAME -->
+
+                <div>
+
+                    <label class="block text-sm font-semibold
+                                  text-slate-700 mb-1">
+                        Full Name
+                    </label>
+
+                    <input
+                        type="text"
+                        id="fullName"
+                        required
+                        class="w-full border border-slate-300
+                               rounded-lg px-3 focus:ring-2
+                               focus:ring-indigo-500 outline-none"
+                        placeholder="e.g. Ramesh Patel">
+
+                </div>
+
+
+
+                <!-- CLASS -->
+
+                <div>
+
+                    <label class="block text-sm font-semibold
+                                  text-slate-700 mb-1">
+                        Class / Batch
+                    </label>
+
+                    <input
+                        type="text"
+                        id="className"
+                        required
+                        class="w-full border border-slate-300
+                               rounded-lg px-3 focus:ring-2
+                               focus:ring-indigo-500 outline-none"
+                        placeholder="e.g. 10th Science">
+
+                </div>
+
+
+
+                <!-- CONTACT -->
+
+                <div>
+
+                    <label class="block text-sm font-semibold
+                                  text-slate-700 mb-1">
+                        Parent Contact
+                    </label>
+
+                    <input
+                        type="tel"
+                        id="parentContact"
+                        required
+                        class="w-full border border-slate-300
+                               rounded-lg px-3 focus:ring-2
+                               focus:ring-indigo-500 outline-none"
+                        placeholder="9876543210">
+
+                </div>
+
+
+
+                <!-- FEE -->
+
+                <div>
+
+                    <label class="block text-sm font-semibold
+                                  text-slate-700 mb-1">
+                        Monthly Fee (₹)
+                    </label>
+
+                    <input
+                        type="number"
+                        id="monthlyFee"
+                        required
+                        min="0"
+                        class="w-full border border-slate-300
+                               rounded-lg px-3 focus:ring-2
+                               focus:ring-indigo-500 outline-none"
+                        placeholder="1500">
+
+                </div>
+
+
+
+                <!-- JOINING DATE -->
+
+                <div>
+
+                    <label class="block text-sm font-semibold
+                                  text-slate-700 mb-1">
+                        Joining Date
+                    </label>
+
+                    <input
+                        type="date"
+                        id="joiningDate"
+                        required
+                        class="w-full border border-slate-300
+                               rounded-lg px-3">
+
+                </div>
+
+
+
+                <!-- BUTTON -->
+
+                <div class="flex items-end">
+
+                    <button
+                        id="registerBtn"
+                        type="submit"
+                        class="w-full bg-indigo-600
+                               hover:bg-indigo-700
+                               text-white font-bold
+                               rounded-lg px-4">
+
+                        + Register Student
+
+                    </button>
+
+                </div>
+
+            </form>
+
+        </div>
+
+
+
+        <!-- STUDENT DATABASE -->
+
+        <div class="bg-white rounded-xl shadow-sm p-6">
+
+            <div class="flex flex-col md:flex-row
+                        md:items-center
+                        md:justify-between gap-4 mb-5">
+
+                <div>
+
+                    <h2 class="text-xl font-bold text-slate-800">
+                        📋 Student Database
+                    </h2>
+
+                    <p class="text-sm text-slate-500">
+                        Search karke existing student ko instantly find karein.
+                    </p>
+
+                </div>
+
+
+                <!-- SEARCH -->
+
+                <div class="w-full md:w-80">
+
+                    <input
+                        type="text"
+                        id="studentSearch"
+                        oninput="filterStudents()"
+                        class="w-full border border-slate-300
+                               rounded-lg px-3"
+                        placeholder="🔍 Search name, ID or class...">
+
+                </div>
+
             </div>
 
-            <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-lg shadow-lg text-lg">
-                + Register Student
-            </button>
-        </form>
-    </div>
 
-    <script>
-        // Set default date to today
-        document.getElementById('joiningDate').valueAsDate = new Date();
 
-        async function registerStudent(e) {
-            e.preventDefault();
+            <!-- TABLE -->
 
-            const payload = {
-                full_name: document.getElementById('fullName').value.trim(),
-                class_name: document.getElementById('className').value.trim(),
-                parent_contact: document.getElementById('parentContact').value.trim(),
-                monthly_fee: document.getElementById('monthlyFee').value,
-                joining_date: document.getElementById('joiningDate').value
-            };
+            <div class="table-scroll">
 
-            try {
-                const res = await fetch('/add_student', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify(payload)
-                });
+                <table class="w-full text-sm">
 
-                const result = await res.json();
-                
-                if (res.ok) {
-                    alert(result.message || 'Student Registered Successfully!');
-                    location.reload();
-                } else {
-                    alert('Error: ' + (result.error || 'Failed to add student'));
-                }
-            } catch (err) {
-                console.error("Submission error:", err);
-                alert("Network error: Could not reach the server.");
+                    <thead>
+
+                        <tr class="border-b bg-slate-50">
+
+                            <th class="text-left p-3">
+                                Student ID
+                            </th>
+
+                            <th class="text-left p-3">
+                                Name
+                            </th>
+
+                            <th class="text-left p-3">
+                                Class
+                            </th>
+
+                            <th class="text-left p-3">
+                                Parent Contact
+                            </th>
+
+                            <th class="text-left p-3">
+                                Monthly Fee
+                            </th>
+
+                            <th class="text-left p-3">
+                                Status
+                            </th>
+
+                        </tr>
+
+                    </thead>
+
+
+                    <tbody id="studentsTable">
+
+                        <tr>
+
+                            <td colspan="6"
+                                class="p-8 text-center text-slate-400">
+
+                                Loading students...
+
+                            </td>
+
+                        </tr>
+
+                    </tbody>
+
+                </table>
+
+            </div>
+
+        </div>
+
+    </main>
+
+
+
+<script>
+
+    // ==========================================
+    // GLOBAL STUDENT DATA
+    // ==========================================
+
+    let allStudents = [];
+
+
+    // ==========================================
+    // DEFAULT JOINING DATE
+    // ==========================================
+
+    document.getElementById(
+        'joiningDate'
+    ).valueAsDate = new Date();
+
+
+
+    // ==========================================
+    // LOAD STUDENTS
+    // ==========================================
+
+    async function loadStudents() {
+
+        const tbody =
+            document.getElementById(
+                'studentsTable'
+            );
+
+        try {
+
+            const response = await fetch(
+                '/api/students'
+            );
+
+            const data = await response.json();
+
+
+            if (data.status !== 'success') {
+
+                throw new Error(
+                    data.message ||
+                    'Students load failed'
+                );
+
             }
+
+
+            allStudents =
+                data.students || [];
+
+
+            renderStudents(
+                allStudents
+            );
+
         }
-    </script>
+
+        catch (error) {
+
+            console.error(
+                'Student loading error:',
+                error
+            );
+
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="6"
+                        class="p-8 text-center text-rose-500">
+                        Students load nahi ho paaye.
+                    </td>
+                </tr>
+            `;
+
+        }
+
+    }
+
+
+
+    // ==========================================
+    // RENDER STUDENTS
+    // ==========================================
+
+    function renderStudents(students) {
+
+        const tbody =
+            document.getElementById(
+                'studentsTable'
+            );
+
+
+        document.getElementById(
+            'totalStudents'
+        ).textContent =
+            allStudents.length;
+
+
+        document.getElementById(
+            'foundStudents'
+        ).textContent =
+            students.length;
+
+
+        const activeCount =
+            allStudents.filter(
+                student =>
+                    String(
+                        student.status
+                    ).toLowerCase()
+                    === 'active'
+            ).length;
+
+
+        document.getElementById(
+            'activeStudents'
+        ).textContent =
+            activeCount;
+
+
+        if (!students.length) {
+
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="6"
+                        class="p-8 text-center text-slate-400">
+                        No students found.
+                    </td>
+                </tr>
+            `;
+
+            return;
+        }
+
+
+        tbody.innerHTML =
+            students.map(student => `
+
+                <tr class="border-b hover:bg-slate-50">
+
+                    <td class="p-3 font-semibold text-indigo-600">
+                        ${escapeHtml(student.id)}
+                    </td>
+
+                    <td class="p-3 font-medium text-slate-800">
+                        ${escapeHtml(student.name)}
+                    </td>
+
+                    <td class="p-3">
+                        ${escapeHtml(student.class)}
+                    </td>
+
+                    <td class="p-3">
+                        ${escapeHtml(student.contact)}
+                    </td>
+
+                    <td class="p-3 font-semibold">
+                        ₹${escapeHtml(student.fee)}
+                    </td>
+
+                    <td class="p-3">
+
+                        <span class="
+                            px-2 py-1 rounded-full
+                            text-xs font-semibold
+                            ${
+                                String(student.status)
+                                .toLowerCase() === 'active'
+                                ? 'bg-emerald-100 text-emerald-700'
+                                : 'bg-slate-100 text-slate-600'
+                            }
+                        ">
+                            ${escapeHtml(student.status)}
+                        </span>
+
+                    </td>
+
+                </tr>
+
+            `).join('');
+
+    }
+
+
+
+    // ==========================================
+    // SEARCH
+    // ==========================================
+
+    function filterStudents() {
+
+        const search =
+            document.getElementById(
+                'studentSearch'
+            ).value
+            .trim()
+            .toLowerCase();
+
+
+        if (!search) {
+
+            renderStudents(
+                allStudents
+            );
+
+            return;
+
+        }
+
+
+        const filtered =
+            allStudents.filter(student =>
+
+                String(student.id)
+                    .toLowerCase()
+                    .includes(search)
+
+                ||
+
+                String(student.name)
+                    .toLowerCase()
+                    .includes(search)
+
+                ||
+
+                String(student.class)
+                    .toLowerCase()
+                    .includes(search)
+
+                ||
+
+                String(student.contact)
+                    .toLowerCase()
+                    .includes(search)
+
+            );
+
+
+        renderStudents(
+            filtered
+        );
+
+    }
+
+
+
+    // ==========================================
+    // REGISTER STUDENT
+    // ==========================================
+
+    async function registerStudent(e) {
+
+        e.preventDefault();
+
+
+        const button =
+            document.getElementById(
+                'registerBtn'
+            );
+
+
+        const payload = {
+
+            full_name:
+                document.getElementById(
+                    'fullName'
+                ).value.trim(),
+
+            class_name:
+                document.getElementById(
+                    'className'
+                ).value.trim(),
+
+            parent_contact:
+                document.getElementById(
+                    'parentContact'
+                ).value.trim(),
+
+            monthly_fee:
+                document.getElementById(
+                    'monthlyFee'
+                ).value,
+
+            joining_date:
+                document.getElementById(
+                    'joiningDate'
+                ).value
+
+        };
+
+
+        if (
+            !payload.full_name ||
+            !payload.class_name ||
+            !payload.parent_contact ||
+            !payload.monthly_fee ||
+            !payload.joining_date
+        ) {
+
+            alert(
+                'Please saari details fill karein.'
+            );
+
+            return;
+
+        }
+
+
+        button.disabled = true;
+
+        button.textContent =
+            'Saving...';
+
+
+        try {
+
+            const response =
+                await fetch(
+                    '/add_student',
+                    {
+                        method: 'POST',
+
+                        headers: {
+                            'Content-Type':
+                                'application/json'
+                        },
+
+                        body:
+                            JSON.stringify(
+                                payload
+                            )
+                    }
+                );
+
+
+            const result =
+                await response.json();
+
+
+            if (response.ok &&
+                result.status === 'success') {
+
+                alert(
+                    result.message ||
+                    'Student Registered Successfully!'
+                );
+
+
+                document
+                    .getElementById(
+                        'studentForm'
+                    )
+                    .reset();
+
+
+                document
+                    .getElementById(
+                        'joiningDate'
+                    )
+                    .valueAsDate =
+                    new Date();
+
+
+                await loadStudents();
+
+            }
+
+            else {
+
+                alert(
+                    'Error: ' +
+                    (
+                        result.message ||
+                        result.error ||
+                        'Student add nahi hua.'
+                    )
+                );
+
+            }
+
+        }
+
+        catch (error) {
+
+            console.error(
+                'Submission error:',
+                error
+            );
+
+            alert(
+                'Network error: Server se connection nahi ho paya.'
+            );
+
+        }
+
+        finally {
+
+            button.disabled = false;
+
+            button.textContent =
+                '+ Register Student';
+
+        }
+
+    }
+
+
+
+    // ==========================================
+    // SECURITY / SAFE DISPLAY
+    // ==========================================
+
+    function escapeHtml(value) {
+
+        return String(
+            value ?? ''
+        )
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#039;');
+
+    }
+
+
+
+    // ==========================================
+    // PAGE LOAD
+    // ==========================================
+
+    document.addEventListener(
+        'DOMContentLoaded',
+        () => {
+
+            loadStudents();
+
+        }
+    );
+
+</script>
+
 </body>
 </html>
