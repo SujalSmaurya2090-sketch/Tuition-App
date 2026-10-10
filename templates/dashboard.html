@@ -519,31 +519,26 @@
 
         try {
 
-            const res =
-                await fetch('/api/get_teacher_attendance');
+            // Reuse the admin summary teacher list instead of reading both
+            // Teacher_Master and Teacher_Attendance_Log just to populate a dropdown.
+            const res = await fetch('/api/admin_summary');
+            const data = await res.json();
 
-            const data =
-                await res.json();
-
-            if (data.status !== 'success') {
-                throw new Error(
-                    data.message || 'Teacher data load failed'
-                );
+            if (!res.ok || data.status !== 'success') {
+                throw new Error(data.message || 'Teacher data load failed');
             }
 
             select.innerHTML =
                 '<option value="">-- Select Teacher --</option>';
 
-            data.teachers.forEach(teacher => {
+            (data.teachers || []).forEach(teacher => {
+                const teacherId = teacher.teacher_id || teacher.id || '';
+                const teacherName = teacher.teacher_name || teacher.name || '';
+                if (!teacherId || !teacherName) return;
 
-                const option =
-                    document.createElement('option');
-
-                option.value = teacher.id;
-
-                option.textContent =
-                    `${teacher.name} (${teacher.id})`;
-
+                const option = document.createElement('option');
+                option.value = teacherId;
+                option.textContent = `${teacherName} (${teacherId})`;
                 select.appendChild(option);
             });
 
