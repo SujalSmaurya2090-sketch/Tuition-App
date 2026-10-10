@@ -7,6 +7,7 @@ from functools import wraps
 import json
 import geopy.distance
 import pytz
+from time import monotonic
 
 # 1. Initialize Flask App once
 app = Flask(__name__)
@@ -42,6 +43,10 @@ else:
 
 client = gspread.authorize(creds)
 sheet = client.open("Tuition_Master_Database")
+
+# Short-lived cache to reduce repeated Google Sheets reads during dashboard refreshes.
+_ADMIN_SUMMARY_CACHE = {"created_at": 0.0, "payload": None}
+_ADMIN_SUMMARY_CACHE_TTL_SECONDS = 20
 
 
 # Decorator for Login Protection
@@ -1400,7 +1405,16 @@ def save_marks():
 @app.route('/api/admin_summary', methods=['GET', 'POST'])
 @role_required('Admin')
 def admin_summary():
+    global _ADMIN_SUMMARY_CACHE
     try:
+        # The dashboard triggers this endpoint from several UI handlers. Reuse a
+        # recent GET response to avoid exhausting Google Sheets read quotas.
+        if request.method == 'GET':
+            cached_payload = _ADMIN_SUMMARY_CACHE.get('payload')
+            cache_age = monotonic() - _ADMIN_SUMMARY_CACHE.get('created_at', 0.0)
+            if cached_payload is not None and cache_age < _ADMIN_SUMMARY_CACHE_TTL_SECONDS:
+                return jsonify(cached_payload)
+
         def get_records(sheet_name):
             try:
                 return sheet.worksheet(sheet_name).get_all_records()
@@ -1409,26 +1423,10 @@ def admin_summary():
                 return []
 
         def get_or_create_assignment_sheet():
-            try:
-                return sheet.worksheet("Teacher_Assignments")
-            except Exception:
-                print("[ADMIN SUMMARY] Teacher_Assignments sheet missing. Creating it.")
-                wks = sheet.add_worksheet(
-                    title="Teacher_Assignments",
-                    rows=1000,
-                    cols=8
-                )
-                wks.append_row([
-                    "Assignment_ID",
-                    "Teacher_Id",
-                    "Teacher_Name",
-                    "Branch",
-                    "Class",
-                    "Medium",
-                    "Subject",
-                    "Status"
-                ], value_input_option='USER_ENTERED')
-                return wks
+            # This worksheet is part of the existing database schema. Do not
+            # create it when worksheet() fails for a quota/network error: that
+            # can cause a duplicate-title error and hide the original problem.
+            return sheet.worksheet("Teacher_Assignments")
 
         # -------------------------
         # SAVE ASSIGNMENT
@@ -1502,6 +1500,7 @@ def admin_summary():
                 subject,
                 'Active'
             ], value_input_option='USER_ENTERED')
+            _ADMIN_SUMMARY_CACHE = {"created_at": 0.0, "payload": None}
 
             return jsonify({
                 'status': 'success',
@@ -1645,7 +1644,7 @@ def admin_summary():
                 'mode': row.get('Payment_Mode')
             })
 
-        return jsonify({
+        payload = {
             'status': 'success',
             'today_present': today_present,
             'today_absent': today_absent,
@@ -1656,7 +1655,10 @@ def admin_summary():
             'teachers': teachers,
             'classes': classes,
             'assignments': assignments
-        })
+        }
+        if request.method == 'GET':
+            _ADMIN_SUMMARY_CACHE = {"created_at": monotonic(), "payload": payload}
+        return jsonify(payload)
 
     except Exception as e:
         print(f"[ADMIN SUMMARY FATAL] {type(e).__name__}: {e}")
