@@ -117,104 +117,74 @@ def get_current_teacher():
     return None
 
 
-def teacher_has_permission(permission_name):
-    try:
-        teacher = get_current_teacher()
+def _permission_value_enabled(value):
+    """Interpret Google Sheets checkbox/text values consistently."""
+    if isinstance(value, bool):
+        return value
+    return str(value or '').strip().lower() in {
+        'true', 'yes', '1', 'allowed', 'active', 'on'
+    }
 
+
+def teacher_has_permission(permission_name):
+    """Admin bypass + Teacher_Permissions lookup with legacy field aliases."""
+    role = str(session.get('role', '')).strip().lower()
+    if role == 'admin':
+        return True
+    if role != 'teacher':
+        return False
+
+    # Fees UI route uses "Fees", while the workbook stores "Collect_Fee".
+    permission_aliases = {
+        'fees': 'Collect_Fee',
+        'collect_fee': 'Collect_Fee',
+        'add_student': 'Add_Student',
+        'my_classes': 'My_Classes',
+        'attendance': 'Attendance',
+        'marks': 'Marks',
+        'students': 'Students',
+    }
+    requested = permission_aliases.get(
+        str(permission_name or '').strip().lower(),
+        str(permission_name or '').strip()
+    )
+
+    try:
+        email = str(session.get('email', '')).strip().lower()
+        if not email:
+            return False
+
+        teachers = sheet.worksheet('Teacher_Master').get_all_records()
+        teacher = next((row for row in teachers
+                        if str(row.get('Email', '')).strip().lower() == email), None)
         if not teacher:
             return False
 
-        # Teacher ID ko different possible header names se safely read karo
         teacher_id = str(
-            teacher.get('Teacher_ID')
-            or teacher.get('Teacher_Id')
-            or teacher.get('Teacher_id')
-            or teacher.get('teacher_id')
-            or ''
+            teacher.get('Teacher_ID') or teacher.get('Teacher_Id') or
+            teacher.get('Teacher_id') or teacher.get('teacher_id') or ''
         ).strip()
-
         if not teacher_id:
-            print("Permission check failed: Teacher ID not found")
-            print("Teacher data:", teacher)
             return False
 
-        permissions_sheet = sheet.worksheet("Teacher_Permissions")
-        records = permissions_sheet.get_all_records()
-
-        for row in records:
-
-            row_teacher_id = str(
-                row.get('Teacher_ID')
-                or row.get('Teacher_Id')
-                or row.get('Teacher_id')
-                or row.get('teacher_id')
-                or ''
+        permission_rows = sheet.worksheet('Teacher_Permissions').get_all_records()
+        for row in permission_rows:
+            row_id = str(
+                row.get('Teacher_ID') or row.get('Teacher_Id') or
+                row.get('Teacher_id') or row.get('teacher_id') or ''
             ).strip()
-
-            if row_teacher_id == teacher_id:
-
-                value = str(
-                    row.get(permission_name, '')
-                ).strip().lower()
-
-                allowed_values = [
-                    'true',
-                    'yes',
-                    '1',
-                    'allowed',
-                    'active'
-                ]
-
-                return value in allowed_values
-
-        print(
-            f"Permission row not found for Teacher ID: {teacher_id}"
-        )
+            if row_id == teacher_id:
+                # Header matching is case-insensitive and supports known aliases.
+                raw = row.get(requested)
+                if raw is None:
+                    raw = next((v for k, v in row.items()
+                                if str(k).strip().lower() == requested.lower()), None)
+                return _permission_value_enabled(raw)
         return False
-
     except Exception as e:
-        print(f"Error checking teacher permission: {str(e)}")
+        # Fail closed for teachers, but leave a useful non-secret diagnostic in Render logs.
+        print(f'Permission check error ({requested}): {type(e).__name__}: {e}')
         return False
-
-    try:
-
-        permission_sheet = sheet.worksheet(
-            "Teacher_Permissions"
-        )
-
-        permissions = (
-            permission_sheet.get_all_records()
-        )
-
-        for row in permissions:
-
-            row_teacher_id = str(
-                row.get('Teacher_ID', '')
-            ).strip()
-
-            if row_teacher_id == teacher_id:
-
-                value = str(
-                    row.get(permission_name, 'No')
-                ).strip().lower()
-
-                return value in [
-                    'yes',
-                    'true',
-                    '1',
-                    'allowed'
-                ]
-
-    except Exception as e:
-
-        print(
-            f"Permission check error: {str(e)}"
-        )
-
-        return False
-
-    # Permission row nahi mila
-    return False
 
 
 def permission_required(permission_name):
@@ -247,6 +217,20 @@ def permission_required(permission_name):
 
     return decorator
 
+
+def permission_required_any(*permission_names):
+    """Allow a shared data API when a user has any relevant page permission."""
+    def decorator(f):
+        @wraps(f)
+        def decorated_function(*args, **kwargs):
+            if 'logged_in' not in session:
+                return redirect(url_for('login'))
+            if not any(teacher_has_permission(name) for name in permission_names):
+                return render_template('unauthorized.html'), 403
+            return f(*args, **kwargs)
+        return decorated_function
+    return decorator
+
 # --------------------------------------------------
 # PAGE ROUTES
 # --------------------------------------------------
@@ -257,6 +241,7 @@ def home():
 
     user_info = {
         "user_name": session.get('username', 'User'),
+        "user_email": session.get('email', ''),
         "email": session.get('email', '')
     }
 
@@ -410,7 +395,7 @@ def teacher_portal_page():
 
 @app.route('/get_classes')
 @app.route('/api/get_classes')
-@permission_required('Attendance')
+@permission_required_any('Attendance', 'Marks', 'Students', 'Fees', 'Collect_Fee')
 def get_classes():
     try:
         # ADMIN = all classes
@@ -497,7 +482,7 @@ def get_classes():
         }), 500
 
 @app.route('/get_students/<path:class_name>')
-@permission_required('Attendance')
+@permission_required_any('Attendance', 'Marks', 'Students', 'Fees', 'Collect_Fee')
 def get_students_by_class(class_name):
     try:
         requested_class = str(class_name).strip()
@@ -1667,7 +1652,7 @@ def admin_summary():
 
 
 @app.route('/api/get_teacher_permissions')
-@login_required
+@role_required('Admin')
 def get_teacher_permissions():
 
     try:
@@ -1754,7 +1739,7 @@ def get_teacher_permissions():
 
 
 @app.route('/api/save_teacher_permissions', methods=['POST'])
-@login_required
+@role_required('Admin')
 def save_teacher_permissions():
 
     try:
@@ -1804,47 +1789,17 @@ def save_teacher_permissions():
 
             teacher_id,
 
-            bool(
-                permissions.get(
-                    'Attendance',
-                    False
-                )
-            ),
+            _permission_value_enabled(permissions.get('Attendance', False)),
 
-            bool(
-                permissions.get(
-                    'Marks',
-                    False
-                )
-            ),
+            _permission_value_enabled(permissions.get('Marks', False)),
 
-            bool(
-                permissions.get(
-                    'Add_Student',
-                    False
-                )
-            ),
+            _permission_value_enabled(permissions.get('Add_Student', False)),
 
-            bool(
-                permissions.get(
-                    'Collect_Fee',
-                    False
-                )
-            ),
+            _permission_value_enabled(permissions.get('Collect_Fee', False)),
 
-            bool(
-                permissions.get(
-                    'Students',
-                    False
-                )
-            ),
+            _permission_value_enabled(permissions.get('Students', False)),
 
-            bool(
-                permissions.get(
-                    'My_Classes',
-                    False
-                )
-            )
+            _permission_value_enabled(permissions.get('My_Classes', False))
         ]
 
         # Existing teacher → update
