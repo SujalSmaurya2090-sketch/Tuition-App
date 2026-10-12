@@ -44,6 +44,97 @@ client = gspread.authorize(creds)
 sheet = client.open("Tuition_Master_Database")
 
 
+
+# --------------------------------------------------
+# GOOGLE SHEETS READ CACHE + BOUNDED TRANSIENT RETRIES
+# --------------------------------------------------
+# Process-local cache: reduces duplicate reads within this Render worker.
+# Cache is invalidated after successful writes made through common gspread methods.
+# Reads only are retried; writes are NEVER automatically retried here.
+import random
+import threading
+import time
+from copy import deepcopy
+from gspread.exceptions import APIError
+
+SHEETS_READ_CACHE_TTL_SECONDS = 15
+SHEETS_READ_MAX_ATTEMPTS = 3
+_sheets_read_cache = {}
+_sheets_read_cache_lock = threading.RLock()
+_original_get_all_records = gspread.Worksheet.get_all_records
+
+def _worksheet_cache_key(worksheet):
+    return (str(getattr(worksheet, 'spreadsheet', None).id), str(worksheet.id))
+
+def _invalidate_worksheet_cache(worksheet):
+    try:
+        key = _worksheet_cache_key(worksheet)
+        with _sheets_read_cache_lock:
+            _sheets_read_cache.pop(key, None)
+    except Exception:
+        # Cache invalidation must never turn a successful write into an app failure.
+        pass
+
+def _is_retryable_sheets_error(exc):
+    status = getattr(getattr(exc, 'response', None), 'status_code', None)
+    if status in (429, 500, 502, 503, 504):
+        return True
+    # gspread/API transport errors may not expose response.status_code consistently.
+    message = str(exc).lower()
+    return any(token in message for token in (
+        '429', '500 server error', '502 bad gateway',
+        '503 service unavailable', '504 gateway timeout'
+    ))
+
+def _cached_get_all_records(self, *args, **kwargs):
+    key = _worksheet_cache_key(self)
+    now = time.monotonic()
+    with _sheets_read_cache_lock:
+        cached = _sheets_read_cache.get(key)
+        if cached and now - cached['created'] < SHEETS_READ_CACHE_TTL_SECONDS:
+            return deepcopy(cached['value'])
+
+        last_error = None
+        for attempt in range(SHEETS_READ_MAX_ATTEMPTS):
+            try:
+                value = _original_get_all_records(self, *args, **kwargs)
+                _sheets_read_cache[key] = {
+                    'created': time.monotonic(),
+                    'value': deepcopy(value),
+                }
+                return deepcopy(value)
+            except Exception as exc:
+                last_error = exc
+                if attempt >= SHEETS_READ_MAX_ATTEMPTS - 1 or not _is_retryable_sheets_error(exc):
+                    raise
+                # Bounded exponential backoff with jitter: ~0.5s, then ~1s.
+                delay = min(4.0, 0.5 * (2 ** attempt)) + random.uniform(0, 0.25)
+                time.sleep(delay)
+        raise last_error
+
+# Install once per worker. All existing get_all_records() calls now use the helper.
+gspread.Worksheet.get_all_records = _cached_get_all_records
+
+def _wrap_write_method_for_cache_invalidation(method_name):
+    original = getattr(gspread.Worksheet, method_name, None)
+    if original is None or getattr(original, '_av_cache_wrapped', False):
+        return
+    @wraps(original)
+    def wrapped(self, *args, **kwargs):
+        result = original(self, *args, **kwargs)
+        _invalidate_worksheet_cache(self)
+        return result
+    wrapped._av_cache_wrapped = True
+    setattr(gspread.Worksheet, method_name, wrapped)
+
+for _write_method in (
+    'update', 'append_row', 'append_rows', 'update_cell', 'batch_update',
+    'batch_clear', 'clear', 'delete_rows', 'delete_columns', 'insert_row',
+    'insert_rows', 'add_rows', 'add_cols'
+):
+    _wrap_write_method_for_cache_invalidation(_write_method)
+
+
 # Decorator for Login Protection
 def login_required(f):
     @wraps(f)
