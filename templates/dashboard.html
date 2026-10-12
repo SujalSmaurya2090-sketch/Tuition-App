@@ -108,7 +108,7 @@
         </div>
 
         <button
-            onclick="loadTeacherAssignments()"
+            onclick="loadTeacherAssignments(true)"
             class="bg-slate-100 hover:bg-slate-200 text-slate-700 px-4 py-2 rounded-lg text-sm font-medium">
             🔄 Refresh
         </button>
@@ -779,6 +779,37 @@
 
 
     // =====================================================
+    // SHARED ADMIN SUMMARY REQUEST
+    // Reuse one request when several dashboard sections need the same data.
+    // This avoids 4 identical calls during initial page load.
+    // =====================================================
+
+    let adminSummaryRequest = null;
+
+    async function getAdminSummaryData(forceRefresh = false) {
+        if (forceRefresh || !adminSummaryRequest) {
+            adminSummaryRequest = (async () => {
+                const response = await fetch('/api/admin_summary');
+                let data;
+                try {
+                    data = await response.json();
+                } catch (_) {
+                    throw new Error('Server returned an unreadable response.');
+                }
+                if (!response.ok || data.status !== 'success') {
+                    throw new Error(data.message || `Request failed (${response.status})`);
+                }
+                return data;
+            })().catch(error => {
+                // Do not cache failures; allow a later retry.
+                adminSummaryRequest = null;
+                throw error;
+            });
+        }
+        return adminSummaryRequest;
+    }
+
+    // =====================================================
     // ADMIN SUMMARY
     // =====================================================
 
@@ -786,11 +817,7 @@
 
         try {
 
-            const res =
-                await fetch('/api/admin_summary');
-
-            const data =
-                await res.json();
+            const data = await getAdminSummaryData();
 
             if (data.status === 'success') {
 
@@ -1087,8 +1114,7 @@ async function loadAssignmentTeachers() {
     const select = document.getElementById('assignment-teacher');
     if (!select) return;
     try {
-        const res = await fetch('/api/admin_summary');
-        const data = await res.json();
+        const data = await getAdminSummaryData();
         if (data.status !== 'success') throw new Error(data.message || 'Unable to load teachers');
         assignmentTeachers = data.teachers || [];
         select.innerHTML = '<option value="">-- Select Teacher --</option>';
@@ -1137,8 +1163,7 @@ async function loadAssignmentClasses() {
     const select = document.getElementById('assignment-class');
     if (!select) return;
     try {
-        const res = await fetch('/api/admin_summary');
-        const data = await res.json();
+        const data = await getAdminSummaryData();
         if (data.status !== 'success') throw new Error(data.message || 'Unable to load batches');
         select.innerHTML = '<option value="">-- Select Batch --</option>';
         (data.classes || []).forEach(className => {
@@ -1285,9 +1310,11 @@ async function saveTeacherAssignment() {
             ).value = '';
 
 
-            // Refresh table
+            // Invalidate shared summary because assignment data changed.
+            adminSummaryRequest = null;
 
-            loadTeacherAssignments();
+            // Refresh table and other assignment data.
+            loadTeacherAssignments(true);
 
 
         } else {
@@ -1326,7 +1353,7 @@ async function saveTeacherAssignment() {
 // LOAD EXISTING ASSIGNMENTS
 // -----------------------------------------------------
 
-async function loadTeacherAssignments() {
+async function loadTeacherAssignments(forceRefresh = false) {
 
     const tbody =
         document.getElementById(
@@ -1347,11 +1374,7 @@ async function loadTeacherAssignments() {
 
     try {
 
-        const res =
-            await fetch('/api/admin_summary');
-
-        const data =
-            await res.json();
+        const data = await getAdminSummaryData(forceRefresh);
 
 
         if (data.status !== 'success') {
