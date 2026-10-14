@@ -108,7 +108,7 @@
         </div>
 
         <button
-            onclick="loadTeacherAssignments(true)"
+            onclick="loadTeacherAssignments()"
             class="bg-slate-100 hover:bg-slate-200 text-slate-700 px-4 py-2 rounded-lg text-sm font-medium">
             🔄 Refresh
         </button>
@@ -779,37 +779,6 @@
 
 
     // =====================================================
-    // SHARED ADMIN SUMMARY REQUEST
-    // Reuse one request when several dashboard sections need the same data.
-    // This avoids 4 identical calls during initial page load.
-    // =====================================================
-
-    let adminSummaryRequest = null;
-
-    async function getAdminSummaryData(forceRefresh = false) {
-        if (forceRefresh || !adminSummaryRequest) {
-            adminSummaryRequest = (async () => {
-                const response = await fetch('/api/admin_summary');
-                let data;
-                try {
-                    data = await response.json();
-                } catch (_) {
-                    throw new Error('Server returned an unreadable response.');
-                }
-                if (!response.ok || data.status !== 'success') {
-                    throw new Error(data.message || `Request failed (${response.status})`);
-                }
-                return data;
-            })().catch(error => {
-                // Do not cache failures; allow a later retry.
-                adminSummaryRequest = null;
-                throw error;
-            });
-        }
-        return adminSummaryRequest;
-    }
-
-    // =====================================================
     // ADMIN SUMMARY
     // =====================================================
 
@@ -817,7 +786,11 @@
 
         try {
 
-            const data = await getAdminSummaryData();
+            const res =
+                await fetch('/api/admin_summary');
+
+            const data =
+                await res.json();
 
             if (data.status === 'success') {
 
@@ -1114,7 +1087,8 @@ async function loadAssignmentTeachers() {
     const select = document.getElementById('assignment-teacher');
     if (!select) return;
     try {
-        const data = await getAdminSummaryData();
+        const res = await fetch('/api/admin_summary');
+        const data = await res.json();
         if (data.status !== 'success') throw new Error(data.message || 'Unable to load teachers');
         assignmentTeachers = data.teachers || [];
         select.innerHTML = '<option value="">-- Select Teacher --</option>';
@@ -1163,7 +1137,8 @@ async function loadAssignmentClasses() {
     const select = document.getElementById('assignment-class');
     if (!select) return;
     try {
-        const data = await getAdminSummaryData();
+        const res = await fetch('/api/admin_summary');
+        const data = await res.json();
         if (data.status !== 'success') throw new Error(data.message || 'Unable to load batches');
         select.innerHTML = '<option value="">-- Select Batch --</option>';
         (data.classes || []).forEach(className => {
@@ -1183,7 +1158,27 @@ async function loadAssignmentClasses() {
 // SAVE ASSIGNMENT
 // -----------------------------------------------------
 
+let assignmentSaveInProgress = false;
+
+function resetAssignmentSaveButton() {
+    assignmentSaveInProgress = false;
+    const button = document.querySelector('button[onclick="saveTeacherAssignment()"]');
+    if (button) {
+        button.disabled = false;
+        button.textContent = button.dataset.originalText || '➕ Assign Teacher';
+    }
+}
+
 async function saveTeacherAssignment() {
+
+    if (assignmentSaveInProgress) return;
+    assignmentSaveInProgress = true;
+    const saveButton = document.querySelector('button[onclick="saveTeacherAssignment()"]');
+    if (saveButton) {
+        saveButton.disabled = true;
+        saveButton.dataset.originalText = saveButton.textContent;
+        saveButton.textContent = 'Saving...';
+    }
 
     const teacherSelect =
         document.getElementById('assignment-teacher');
@@ -1223,14 +1218,14 @@ async function saveTeacherAssignment() {
     if (!teacherId) {
 
         alert('Pehle teacher select karein.');
-
+        resetAssignmentSaveButton();
         return;
     }
 
     if (!className) {
 
         alert('Pehle Batch / Class select karein.');
-
+        resetAssignmentSaveButton();
         return;
     }
 
@@ -1310,11 +1305,9 @@ async function saveTeacherAssignment() {
             ).value = '';
 
 
-            // Invalidate shared summary because assignment data changed.
-            adminSummaryRequest = null;
+            // Refresh table
 
-            // Refresh table and other assignment data.
-            loadTeacherAssignments(true);
+            loadTeacherAssignments();
 
 
         } else {
@@ -1345,6 +1338,8 @@ async function saveTeacherAssignment() {
 
         message.className =
             'text-sm text-center font-semibold mt-4 text-rose-600';
+    } finally {
+        resetAssignmentSaveButton();
     }
 }
 
@@ -1353,7 +1348,7 @@ async function saveTeacherAssignment() {
 // LOAD EXISTING ASSIGNMENTS
 // -----------------------------------------------------
 
-async function loadTeacherAssignments(forceRefresh = false) {
+async function loadTeacherAssignments() {
 
     const tbody =
         document.getElementById(
@@ -1374,7 +1369,11 @@ async function loadTeacherAssignments(forceRefresh = false) {
 
     try {
 
-        const data = await getAdminSummaryData(forceRefresh);
+        const res =
+            await fetch('/api/admin_summary');
+
+        const data =
+            await res.json();
 
 
         if (data.status !== 'success') {
@@ -1386,9 +1385,18 @@ async function loadTeacherAssignments(forceRefresh = false) {
         }
 
 
-        const assignments =
-            data.assignments || [];
-
+        const allAssignments = data.assignments || [];
+        const normalizeAssignmentValue = value => String(value || '').trim().replace(/\s+/g, ' ').toLowerCase();
+        const seenAssignmentKeys = new Set();
+        const assignments = allAssignments.filter(assignment => {
+            const status = normalizeAssignmentValue(assignment.status || 'Active');
+            if (status !== 'active') return true; // keep inactive/history rows visible
+            const key = [assignment.teacher_id, assignment.branch || 'Main', assignment.class,
+                assignment.medium, assignment.subject].map(normalizeAssignmentValue).join('|');
+            if (seenAssignmentKeys.has(key)) return false;
+            seenAssignmentKeys.add(key);
+            return true;
+        });
 
         if (assignments.length === 0) {
 
