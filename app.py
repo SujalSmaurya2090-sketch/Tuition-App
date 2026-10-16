@@ -7,6 +7,7 @@ from functools import wraps
 import json
 import geopy.distance
 import pytz
+import threading
 
 # 1. Initialize Flask App once
 app = Flask(__name__)
@@ -42,6 +43,73 @@ else:
 
 client = gspread.authorize(creds)
 sheet = client.open("Tuition_Master_Database")
+
+# Small per-process cache to reduce repeated Google Sheets reads.
+# Keep permissions TTL short and clear affected entries after writes.
+_SHEETS_CACHE = {}
+_SHEETS_CACHE_LOCK = threading.RLock()
+_SHEETS_CACHE_TTL_SECONDS = 10
+
+
+def _cached_sheet_records(sheet_name, ttl=None):
+    """Read worksheet records with a short TTL; failed reads are never cached."""
+    ttl = _SHEETS_CACHE_TTL_SECONDS if ttl is None else ttl
+    now = datetime.now().timestamp()
+    with _SHEETS_CACHE_LOCK:
+        cached = _SHEETS_CACHE.get(sheet_name)
+        if cached and now - cached[0] < ttl:
+            return [dict(row) for row in cached[1]]
+    records = sheet.worksheet(sheet_name).get_all_records()
+    safe_records = [dict(row) for row in records]
+    with _SHEETS_CACHE_LOCK:
+        _SHEETS_CACHE[sheet_name] = (now, safe_records)
+    return [dict(row) for row in safe_records]
+
+
+def _invalidate_sheet_cache(*sheet_names):
+    with _SHEETS_CACHE_LOCK:
+        if not sheet_names:
+            _SHEETS_CACHE.clear()
+        else:
+            for name in sheet_names:
+                _SHEETS_CACHE.pop(name, None)
+
+
+def _row_value(row, *aliases, default=''):
+    """Case-insensitive worksheet header lookup with legacy aliases."""
+    lookup = {str(key).strip().lower(): value for key, value in row.items()}
+    for alias in aliases:
+        value = lookup.get(str(alias).strip().lower())
+        if value is not None and str(value).strip() != '':
+            return value
+    return default
+
+
+def _parse_sheet_date(value):
+    """Parse common Google Sheets date strings without guessing invalid dates."""
+    if isinstance(value, datetime):
+        return value.date()
+    if hasattr(value, 'year') and hasattr(value, 'month') and hasattr(value, 'day'):
+        try:
+            return value.date() if hasattr(value, 'date') else value
+        except Exception:
+            pass
+    raw = str(value or '').strip()
+    if not raw:
+        return None
+    for fmt in ('%Y-%m-%d', '%d/%m/%Y', '%m/%d/%Y', '%d-%m-%Y', '%Y/%m/%d', '%d.%m.%Y'):
+        try:
+            return datetime.strptime(raw[:10], fmt).date()
+        except ValueError:
+            continue
+    try:
+        return datetime.fromisoformat(raw.replace('Z', '+00:00')).date()
+    except Exception:
+        return None
+
+
+def _normal_key(value):
+    return ' '.join(str(value or '').strip().casefold().split())
 
 
 # Decorator for Login Protection
@@ -97,8 +165,7 @@ def get_current_teacher():
         return None
 
     try:
-        teacher_sheet = sheet.worksheet("Teacher_Master")
-        teachers = teacher_sheet.get_all_records()
+        teachers = _cached_sheet_records("Teacher_Master")
 
         for row in teachers:
 
@@ -154,7 +221,7 @@ def teacher_has_permission(permission_name):
         if not email:
             return False
 
-        teachers = sheet.worksheet('Teacher_Master').get_all_records()
+        teachers = _cached_sheet_records('Teacher_Master')
         teacher = next((row for row in teachers
                         if str(row.get('Email', '')).strip().lower() == email), None)
         if not teacher:
@@ -167,7 +234,7 @@ def teacher_has_permission(permission_name):
         if not teacher_id:
             return False
 
-        permission_rows = sheet.worksheet('Teacher_Permissions').get_all_records()
+        permission_rows = _cached_sheet_records('Teacher_Permissions')
         for row in permission_rows:
             row_id = str(
                 row.get('Teacher_ID') or row.get('Teacher_Id') or
@@ -678,6 +745,7 @@ def add_student():
             new_row,
             value_input_option='USER_ENTERED'
         )
+        _invalidate_sheet_cache('Students')
 
         return jsonify({
             "status": "success",
@@ -806,6 +874,7 @@ def save_fee():
             new_row,
             value_input_option='USER_ENTERED'
         )
+        _invalidate_sheet_cache('Fees_Log')
 
         return jsonify({
             "status": "success",
@@ -1186,6 +1255,7 @@ def save_attendance():
             rows_to_append,
             value_input_option='USER_ENTERED'
         )
+        _invalidate_sheet_cache('Attendance_Log')
 
         return jsonify({
             "status": "success",
@@ -1388,10 +1458,10 @@ def admin_summary():
     try:
         def get_records(sheet_name):
             try:
-                return sheet.worksheet(sheet_name).get_all_records()
+                return _cached_sheet_records(sheet_name)
             except Exception as e:
-                print(f"[ADMIN SUMMARY] Optional sheet '{sheet_name}' unavailable: {e}")
-                return []
+                print(f"[ADMIN SUMMARY] Worksheet read failed for '{sheet_name}': {type(e).__name__}: {e}")
+                raise
 
         def get_or_create_assignment_sheet():
             try:
@@ -1443,11 +1513,6 @@ def admin_summary():
             assignment_sheet = get_or_create_assignment_sheet()
             records = assignment_sheet.get_all_records()
 
-            # Duplicate protection: compare the full logical assignment identity.
-            # Blank Status is treated as Active for legacy rows.
-            def norm(value):
-                return ' '.join(str(value or '').strip().split()).casefold()
-
             for row in records:
                 row_teacher = str(
                     row.get('Teacher_Id')
@@ -1455,23 +1520,24 @@ def admin_summary():
                     or row.get('Teacher_id')
                     or ''
                 ).strip()
-                row_class = row.get('Class', '')
-                row_subject = row.get('Subject', '')
-                row_branch = row.get('Branch', '') or 'Main'
-                row_medium = row.get('Medium', '')
-                row_status = norm(row.get('Status') or 'Active')
+
+                row_class = str(row.get('Class') or '').strip()
+                row_subject = str(row.get('Subject') or '').strip()
+                row_branch = str(row.get('Branch') or 'Main').strip() or 'Main'
+                row_medium = str(row.get('Medium') or '').strip()
+                row_status = str(row.get('Status') or 'Active').strip().lower()
 
                 if (
-                    norm(row_teacher) == norm(teacher_id)
-                    and norm(row_class) == norm(class_name)
-                    and norm(row_subject) == norm(subject)
-                    and norm(row_branch) == norm(branch)
-                    and norm(row_medium) == norm(medium)
+                    _normal_key(row_teacher) == _normal_key(teacher_id)
+                    and _normal_key(row_class) == _normal_key(class_name)
+                    and _normal_key(row_subject) == _normal_key(subject)
+                    and _normal_key(row_branch) == _normal_key(branch)
+                    and _normal_key(row_medium) == _normal_key(medium)
                     and row_status == 'active'
                 ):
                     return jsonify({
                         'status': 'error',
-                        'message': 'This teacher already has an active assignment for this branch, class, medium and subject.'
+                        'message': 'This teacher is already assigned to this class and subject.'
                     }), 409
 
             numbers = []
@@ -1495,6 +1561,7 @@ def admin_summary():
                 subject,
                 'Active'
             ], value_input_option='USER_ENTERED')
+            _invalidate_sheet_cache('Teacher_Assignments')
 
             return jsonify({
                 'status': 'success',
@@ -1549,7 +1616,7 @@ def admin_summary():
         # Assignments
         assignments = []
         try:
-            assignment_records = get_or_create_assignment_sheet().get_all_records()
+            assignment_records = _cached_sheet_records("Teacher_Assignments")
             for row in assignment_records:
                 assignments.append({
                     'assignment_id': str(row.get('Assignment_ID') or '').strip(),
@@ -1573,34 +1640,55 @@ def admin_summary():
         except Exception as e:
             print(f"[ADMIN SUMMARY] Assignment load error: {e}")
 
-        # Attendance summary
-        today_present = 0
-        today_absent = 0
+        # Attendance summary: use today's India date and count each student once.
+        today = datetime.now(pytz.timezone('Asia/Kolkata')).date()
+        student_records = get_records("Students")
+        # Build contact/name lookup from Students. Prefer stable Student_ID; use name+class fallback.
+        student_by_id = {}
+        student_by_name_class = {}
+        for student in student_records:
+            sid = str(_row_value(student, 'Student_ID', 'Student_Id', 'Student_id')).strip()
+            sname = str(_row_value(student, 'Full_Name', 'Student_Name', 'Name')).strip()
+            sclass = str(_row_value(student, 'Class', 'Batch')).strip()
+            contact = str(_row_value(student, 'Parent_Contact', 'Parent_Phone', 'Contact_Number', 'Phone', 'Mobile', 'Parent_Mobile')).strip()
+            item = {'student_id': sid, 'name': sname, 'class': sclass, 'contact': contact}
+            if sid:
+                student_by_id[sid] = item
+            if sname:
+                student_by_name_class[(_normal_key(sname), _normal_key(sclass))] = item
+
+        attendance_by_student = {}
+        for row in att_records:
+            row_date = _parse_sheet_date(_row_value(row, 'Date', 'Attendance_Date'))
+            if row_date != today:
+                continue
+            status = _normal_key(_row_value(row, 'Status', 'Attendance_Status'))
+            if status not in ('present', 'absent'):
+                continue
+            sid = str(_row_value(row, 'Student_ID', 'Student_Id', 'Student_id')).strip()
+            name = str(_row_value(row, 'Student_Name', 'Full_Name', 'Name')).strip()
+            class_name = str(_row_value(row, 'Class', 'Batch')).strip()
+            # Stable identity includes class in case historical sheets reuse IDs.
+            identity = (sid or _normal_key(name), _normal_key(class_name))
+            # If multiple rows exist for the same student/class/day, the latest row wins.
+            attendance_by_student[identity] = {'status': status, 'student_id': sid, 'name': name, 'class': class_name}
+
+        today_present = sum(1 for r in attendance_by_student.values() if r['status'] == 'present')
+        today_absent = sum(1 for r in attendance_by_student.values() if r['status'] == 'absent')
         absent_list = []
-
-        if att_records:
-            dates = [
-                str(r.get('Date') or '').strip()
-                for r in att_records
-                if str(r.get('Date') or '').strip()
-            ]
-            latest_date = max(dates) if dates else ''
-
-            for row in att_records:
-                if str(row.get('Date') or '').strip() != latest_date:
-                    continue
-
-                status = str(row.get('Status') or '').strip().lower()
-
-                if status == 'present':
-                    today_present += 1
-                elif status == 'absent':
-                    today_absent += 1
-                    absent_list.append({
-                        'student_id': row.get('Student_ID'),
-                        'name': row.get('Student_Name'),
-                        'class': row.get('Class')
-                    })
+        for record in attendance_by_student.values():
+            if record['status'] != 'absent':
+                continue
+            student = student_by_id.get(record['student_id']) if record['student_id'] else None
+            if student is None:
+                student = student_by_name_class.get((_normal_key(record['name']), _normal_key(record['class'])))
+            absent_list.append({
+                'student_id': record['student_id'] or (student or {}).get('student_id', ''),
+                'name': record['name'] or (student or {}).get('name', ''),
+                'class': record['class'] or (student or {}).get('class', ''),
+                'contact': (student or {}).get('contact', '')
+            })
+        absent_list.sort(key=lambda item: (_normal_key(item.get('class')), _normal_key(item.get('name'))))
 
         # Recent marks
         recent_marks = []
@@ -1615,19 +1703,20 @@ def admin_summary():
                 'total': row.get('Total_Marks')
             })
 
-        # Fees
+        # Fees: current calendar month in India, not all-time total.
         recent_fees = []
-        total_collection = 0
+        monthly_collection = 0.0
+        month_start = today.replace(day=1)
 
         for row in fees_records:
-            raw_amount = str(row.get('Amount_Paid', 0) or 0)
+            raw_amount = str(_row_value(row, 'Amount_Paid', 'Amount', 'Paid_Amount', default=0) or 0)
             try:
-                amount = float(
-                    raw_amount.replace('₹', '').replace(',', '').strip() or 0
-                )
+                amount = float(raw_amount.replace('₹', '').replace(',', '').strip() or 0)
             except Exception:
-                amount = 0
-            total_collection += amount
+                amount = 0.0
+            payment_date = _parse_sheet_date(_row_value(row, 'Payment_Date', 'Date', 'Paid_Date'))
+            if payment_date and month_start <= payment_date <= today:
+                monthly_collection += amount
 
         for row in fees_records[-10:]:
             recent_fees.append({
@@ -1642,7 +1731,8 @@ def admin_summary():
             'status': 'success',
             'today_present': today_present,
             'today_absent': today_absent,
-            'total_collection': total_collection,
+            'monthly_collection': monthly_collection,
+            'collection_month': today.strftime('%B %Y'),
             'absent_students': absent_list,
             'recent_marks': list(reversed(recent_marks)),
             'recent_fees': list(reversed(recent_fees)),
@@ -1679,7 +1769,7 @@ def get_teacher_permissions():
             "Teacher_Permissions"
         )
 
-        records = permissions_sheet.get_all_records()
+        records = _cached_sheet_records('Teacher_Permissions', ttl=5)
 
         default_permissions = {
             'Attendance': False,
@@ -1692,36 +1782,13 @@ def get_teacher_permissions():
 
         for row in records:
 
-            row_teacher_id = str(
-                row.get('Teacher_ID', '')
-            ).strip()
+            row_teacher_id = str(_row_value(row, 'Teacher_ID', 'Teacher_Id', 'Teacher_id', 'teacher_id')).strip()
 
             if row_teacher_id == teacher_id:
 
                 permissions = {
-                    'Attendance':
-                        str(row.get('Attendance', '')).lower()
-                        in ['true', 'yes', '1', 'allowed'],
-
-                    'Marks':
-                        str(row.get('Marks', '')).lower()
-                        in ['true', 'yes', '1', 'allowed'],
-
-                    'Add_Student':
-                        str(row.get('Add_Student', '')).lower()
-                        in ['true', 'yes', '1', 'allowed'],
-
-                    'Collect_Fee':
-                        str(row.get('Collect_Fee', '')).lower()
-                        in ['true', 'yes', '1', 'allowed'],
-
-                    'Students':
-                        str(row.get('Students', '')).lower()
-                        in ['true', 'yes', '1', 'allowed'],
-
-                    'My_Classes':
-                        str(row.get('My_Classes', '')).lower()
-                        in ['true', 'yes', '1', 'allowed']
+                    name: _permission_value_enabled(_row_value(row, name))
+                    for name in ('Attendance', 'Marks', 'Add_Student', 'Collect_Fee', 'Students', 'My_Classes')
                 }
 
                 return jsonify({
@@ -1774,7 +1841,7 @@ def save_teacher_permissions():
             "Teacher_Permissions"
         )
 
-        records = permissions_sheet.get_all_records()
+        records = _cached_sheet_records('Teacher_Permissions', ttl=5)
 
         existing_row = None
 
@@ -1784,9 +1851,7 @@ def save_teacher_permissions():
             start=2
         ):
 
-            row_teacher_id = str(
-                row.get('Teacher_ID', '')
-            ).strip()
+            row_teacher_id = str(_row_value(row, 'Teacher_ID', 'Teacher_Id', 'Teacher_id', 'teacher_id')).strip()
 
             if row_teacher_id == teacher_id:
 
@@ -1812,10 +1877,10 @@ def save_teacher_permissions():
 
         # Existing teacher → update
         if existing_row:
-
             permissions_sheet.update(
                 f'A{existing_row}:G{existing_row}',
-                [values]
+                [values],
+                value_input_option='USER_ENTERED'
             )
 
         # New teacher → create
@@ -1825,6 +1890,17 @@ def save_teacher_permissions():
                 values,
                 value_input_option='USER_ENTERED'
             )
+
+        _invalidate_sheet_cache('Teacher_Permissions')
+        # Read-after-write verification prevents a false success message.
+        saved_rows = permissions_sheet.get_all_records()
+        saved_row = next((row for row in saved_rows if str(_row_value(row, 'Teacher_ID', 'Teacher_Id', 'Teacher_id')).strip() == teacher_id), None)
+        if saved_row is None or any(
+            _permission_value_enabled(_row_value(saved_row, key)) != bool(value)
+            for key, value in zip(('Attendance', 'Marks', 'Add_Student', 'Collect_Fee', 'Students', 'My_Classes'), values[1:])
+        ):
+            _invalidate_sheet_cache('Teacher_Permissions')
+            return jsonify({'status': 'error', 'message': 'Permission save could not be verified. Please refresh and check the sheet.'}), 502
 
         return jsonify({
             'status': 'success',
@@ -2113,8 +2189,7 @@ def teacher_my_classes():
             }), 401
 
         # Teacher_Master se logged-in teacher ki details
-        teacher_sheet = sheet.worksheet("Teacher_Master")
-        teachers = teacher_sheet.get_all_records()
+        teachers = _cached_sheet_records("Teacher_Master")
 
         teacher_info = None
 
@@ -2631,7 +2706,7 @@ def admin_teacher_assignments():
         # -----------------------------
         if request.method == 'GET':
 
-            records = assignment_sheet.get_all_records()
+            records = _cached_sheet_records("Teacher_Assignments")
 
             assignments = []
 
@@ -2710,31 +2785,21 @@ def admin_teacher_assignments():
 
         records = assignment_sheet.get_all_records()
 
-        def norm(value):
-            return ' '.join(str(value or '').strip().split()).casefold()
-
         for row in records:
-            row_teacher = (
-                row.get('Teacher_Id')
-                or row.get('Teacher_ID')
-                or row.get('Teacher_id')
-                or ''
-            )
-            row_branch = row.get('Branch', '') or 'Main'
-            row_medium = row.get('Medium', '')
-            row_status = norm(row.get('Status') or 'Active')
 
-            if (
-                norm(row_teacher) == norm(teacher_id)
-                and norm(row.get('Class', '')) == norm(class_name)
-                and norm(row.get('Subject', '')) == norm(subject)
-                and norm(row_branch) == norm(branch or 'Main')
-                and norm(row_medium) == norm(medium)
-                and row_status == 'active'
-            ):
+            same_teacher = _normal_key(_row_value(row, 'Teacher_Id', 'Teacher_ID', 'Teacher_id')) == _normal_key(teacher_id)
+            same_class = _normal_key(_row_value(row, 'Class', 'Batch')) == _normal_key(class_name)
+            same_subject = _normal_key(_row_value(row, 'Subject')) == _normal_key(subject)
+            same_branch = _normal_key(_row_value(row, 'Branch', default='Main') or 'Main') == _normal_key(branch or 'Main')
+            same_medium = _normal_key(_row_value(row, 'Medium')) == _normal_key(medium)
+            same_status = _normal_key(_row_value(row, 'Status', default='Active') or 'Active') == 'active'
+
+            if same_teacher and same_class and same_subject and same_branch and same_medium and same_status:
                 return jsonify({
                     "status": "error",
-                    "message": "This teacher already has an active assignment for this branch, class, medium and subject."
+                    "message":
+                        "This teacher is already assigned "
+                        "to this class and subject."
                 }), 409
 
         # -----------------------------
@@ -2778,6 +2843,7 @@ def admin_teacher_assignments():
             subject,
             "Active"
         ], value_input_option='USER_ENTERED')
+        _invalidate_sheet_cache('Teacher_Assignments')
 
         return jsonify({
             "status": "success",
