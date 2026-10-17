@@ -456,8 +456,111 @@
 
         </div>
     </div>
-    <a href="tel:+91 6352620106">Call To Action</a>
-    <a href="https://wa.me/916352620106" target="_blank">Msg Me For Any Problem OR Query..</a>
+    <!-- Footer CTA Box -->
+<footer class="cta-footer-box">
+    <div class="cta-container">
+        <!-- Call Button -->
+        <a href="tel:+91 6352620106" class="cta-btn call-btn">
+            <span class="cta-icon">📞</span>
+            <div class="cta-text">
+                <span class="cta-label">Call To Action</span>
+                <span class="cta-sub">+91 6352620106</span>
+            </div>
+        </a>
+
+        <!-- WhatsApp Button -->
+        <a href="https://wa.me/916352620106" target="_blank" class="cta-btn wa-btn">
+            <span class="cta-icon">💬</span>
+            <div class="cta-text">
+                <span class="cta-label">Msg Me For Any Problem</span>
+                <span class="cta-sub">Chat on WhatsApp</span>
+            </div>
+        </a>
+    </div>
+</footer>
+
+<style>
+/* Footer Box Styling */
+.cta-footer-box {
+    background: #ffffff;
+    border-top: 1px solid #eaeaea;
+    padding: 12px 16px;
+    box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.05);
+    width: 100%;
+    position: relative; /* Agar app mein bilkul niche chipkana hai toh 'position: fixed; bottom: 0; left: 0; z-index: 1000;' kar sakte hain */
+    box-sizing: border-box;
+}
+
+.cta-container {
+    display: flex;
+    gap: 12px;
+    max-width: 600px;
+    margin: 0 auto;
+}
+
+/* Button Base Styling */
+.cta-btn {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    padding: 10px 14px;
+    border-radius: 12px;
+    text-decoration: none;
+    transition: all 0.3s ease;
+    box-sizing: border-box;
+}
+
+/* Call Button Theme (Clean Blue/Dark) */
+.call-btn {
+    background: #f0f4f8;
+    border: 1px solid #d9e2ec;
+}
+.call-btn:hover {
+    background: #e2e8f0;
+}
+
+/* WhatsApp Button Theme (Green) */
+.wa-btn {
+    background: #e1f5fe;
+    border: 1px solid #b3e5fc;
+}
+.wa-btn:hover {
+    background: #b3e5fc;
+}
+
+/* Icon & Text Layout */
+.cta-icon {
+    font-size: 22px;
+    margin-right: 10px;
+}
+
+.cta-text {
+    display: flex;
+    flex-direction: column;
+}
+
+.cta-label {
+    font-size: 13px;
+    font-weight: 700;
+    color: #111827;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.cta-sub {
+    font-size: 11px;
+    color: #4b5563;
+}
+
+/* Mobile Responsive adjustment */
+@media (max-width: 480px) {
+    .cta-container {
+        flex-direction: column;
+        gap: 8px;
+    }
+}
+</style>
 
 <script>
 
