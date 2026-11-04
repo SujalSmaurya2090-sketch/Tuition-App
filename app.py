@@ -915,7 +915,7 @@ def save_attendance():
 
         att_date = str(
             data.get('date')
-            or datetime.now().strftime("%Y-%m-%d")
+            or datetime.now().strftime("%d-%m-%Y")
         ).strip()
 
         records = (
