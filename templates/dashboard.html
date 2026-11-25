@@ -1,1719 +1,426 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <link rel="manifest" href="/static/manifest.json">
-    <meta name="theme-color" content="#4f46e5">
-    <script>
-      if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('/static/sw.js');
-      }
-    </script>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin Dashboard - AMPLE VISION ACADEMY</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Admin Dashboard • Ample Vision</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    * { -webkit-tap-highlight-color: transparent; }
+    body { font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+  </style>
 </head>
-<body class="bg-slate-100 min-h-screen p-4 md:p-6 font-sans">
-    <div class="max-w-6xl mx-auto space-y-6">
-        
-        <!-- Header -->
-        <div class="flex flex-wrap justify-between items-center bg-white p-5 rounded-2xl shadow-sm border border-slate-200 gap-4">
-            <div class="flex items-center space-x-4">
-                <img src="/icon.jpeg" alt="Academy Logo" class="w-12 h-12 rounded-xl object-cover border border-slate-200">
-                <div>
-                    <h1 class="text-xl font-bold text-slate-800">AMPLE VISION ACADEMY</h1>
-                    <p class="text-sm text-slate-500">Admin Control Panel</p>
-                </div>
-            </div>
-            <div class="flex items-center space-x-4">
-                <span class="text-sm font-semibold text-slate-700 bg-slate-100 px-3 py-1.5 rounded-lg border border-slate-200">
-                    Logged in as: <span class="text-indigo-600">{{ user.user_name }}</span>
-                </span>
-                <a href="/logout" class="bg-rose-500 hover:bg-rose-600 text-white font-medium px-4 py-1.5 rounded-lg text-sm transition-colors shadow-sm">
-                    Logout
-                </a>
-            </div>
+<body class="min-h-screen bg-slate-950 text-slate-100 pb-24 sm:pb-10">
+
+  <!-- Reusable Popup Modal -->
+  <div id="appPopupBackdrop" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+    <div id="appPopupCard" class="w-full max-w-sm rounded-2xl bg-slate-900 border border-slate-800 shadow-2xl overflow-hidden transform transition-all scale-95 opacity-0 duration-200">
+      <div class="p-5">
+        <div class="flex items-start gap-3.5">
+          <div id="appPopupIcon" class="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 text-base font-bold"></div>
+          <div class="min-w-0 flex-1">
+            <h3 id="appPopupTitle" class="text-base font-semibold text-white"></h3>
+            <p id="appPopupMessage" class="mt-1 text-sm text-slate-300 leading-relaxed"></p>
+          </div>
         </div>
-
-        <!-- Metric Summary Cards -->
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 flex items-center justify-between">
-                <div>
-                    <p class="text-sm font-medium text-slate-500">Today's Present</p>
-                    <h3 id="card-present" class="text-3xl font-bold text-emerald-600 mt-1">--</h3>
-                </div>
-                <div class="p-3 bg-emerald-50 text-emerald-600 rounded-xl">
-                    <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                </div>
-            </div>
-
-            <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 flex items-center justify-between">
-                <div>
-                    <p class="text-sm font-medium text-slate-500">Today's Absent</p>
-                    <h3 id="card-absent" class="text-3xl font-bold text-rose-600 mt-1">--</h3>
-                </div>
-                <div class="p-3 bg-rose-50 text-rose-600 rounded-xl">
-                    <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                </div>
-            </div>
-
-            <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 flex items-center justify-between">
-                <div>
-                    <p class="text-sm font-medium text-slate-500">This Month Fee Collection</p>
-                    <h3 id="card-fees" class="text-3xl font-bold text-indigo-600 mt-1">₹0</h3>
-                </div>
-                <div class="p-3 bg-indigo-50 text-indigo-600 rounded-xl">
-                    <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                </div>
-            </div>
+        <div class="mt-5 flex justify-end">
+          <button id="appPopupCloseBtn" type="button" class="px-5 py-2.5 rounded-xl text-sm font-medium text-white transition">
+            Theek Hai
+          </button>
         </div>
+      </div>
+    </div>
+  </div>
 
-        <!-- Main Navigation Action Bar -->
-        <div class="grid grid-cols-2 sm:grid-cols-5 gap-4">
-            <a href="/attendance" class="bg-indigo-600 hover:bg-indigo-700 text-white font-medium p-4 rounded-xl shadow-sm transition-all text-center">
-                Attendance Log
-            </a>
-            <a href="/fees" class="bg-indigo-600 hover:bg-indigo-700 text-white font-medium p-4 rounded-xl shadow-sm transition-all text-center">
-                Fee Collection
-            </a>
-            <a href="/marks" class="bg-indigo-600 hover:bg-indigo-700 text-white font-medium p-4 rounded-xl shadow-sm transition-all text-center">
-                Marks Entry
-            </a>
-            <a href="/students" class="bg-indigo-600 hover:bg-indigo-700 text-white font-medium p-4 rounded-xl shadow-sm transition-all text-center">
-                Student Directory
-            </a>
-
-            <button
-                onclick="openPermissionsPanel()"
-                class="bg-slate-800 hover:bg-slate-900 text-white font-medium p-4 rounded-xl shadow-sm transition-all text-center"
-                >
-                🔐 Teacher Permissions
-            </button>
+  <!-- Top Bar -->
+  <header class="sticky top-0 z-30 bg-slate-950/90 backdrop-blur border-b border-slate-800/80">
+    <div class="max-w-6xl mx-auto px-4 py-3.5 flex items-center justify-between gap-3">
+      <div class="flex items-center gap-3 min-w-0">
+        <img src="/icon.jpeg" alt="Logo" onerror="this.style.display='none'"
+             class="w-10 h-10 rounded-xl object-cover border border-slate-800 bg-slate-900 shrink-0" />
+        <div class="min-w-0">
+          <p class="text-[11px] uppercase tracking-wider text-indigo-400 font-semibold">Admin Control</p>
+          <h1 class="text-base sm:text-lg font-bold text-white truncate">{{ user.user_name }}</h1>
         </div>
+      </div>
 
-<!-- =====================================================
-     TEACHER CLASS / BATCH ASSIGNMENT
-     ===================================================== -->
-
-<div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
-
-    <div class="flex flex-wrap justify-between items-center gap-3 mb-5">
-        <div>
-            <h2 class="text-lg font-bold text-slate-800">
-                👨‍🏫 Teacher Class / Batch Assignment
-            </h2>
-            <p class="text-sm text-slate-500 mt-1">
-                Teacher ko uski assigned class, batch aur subject dein.
-            </p>
-        </div>
-
-        <button
-            onclick="loadTeacherAssignments()"
-            class="bg-slate-100 hover:bg-slate-200 text-slate-700 px-4 py-2 rounded-lg text-sm font-medium">
-            🔄 Refresh
+      <div class="flex items-center gap-2 shrink-0">
+        <button id="refreshBtn" type="button"
+                class="px-3 py-2 rounded-xl text-xs font-medium bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-200 transition">
+          Sync
         </button>
-    </div>
-
-    <!-- Assignment Form -->
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-
-        <!-- Teacher -->
-        <div>
-            <label class="block text-sm font-semibold text-slate-700 mb-2">
-                Teacher
-            </label>
-
-            <select
-                id="assignment-teacher"
-                onchange="setAssignmentTeacherName()"
-                class="w-full border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500">
-
-                <option value="">
-                    -- Select Teacher --
-                </option>
-
-            </select>
-        </div>
-
-        <!-- Branch -->
-        <div>
-            <label class="block text-sm font-semibold text-slate-700 mb-2">
-                Branch
-            </label>
-
-            <input
-                id="assignment-branch"
-                type="text"
-                placeholder="e.g. Main"
-                class="w-full border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500">
-        </div>
-
-        <!-- Class / Batch -->
-        <div>
-            <label class="block text-sm font-semibold text-slate-700 mb-2">
-                Class / Batch
-            </label>
-
-            <select
-                id="assignment-class"
-                class="w-full border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500">
-
-                <option value="">
-                    -- Select Batch --
-                </option>
-
-            </select>
-        </div>
-
-        <!-- Medium -->
-        <div>
-            <label class="block text-sm font-semibold text-slate-700 mb-2">
-                Medium
-            </label>
-
-            <select
-                id="assignment-medium"
-                class="w-full border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500">
-
-                <option value="">-- Select Medium --</option>
-                <option value="Gujarati">Gujarati</option>
-                <option value="English">English</option>
-                <option value="Hindi">Hindi</option>
-
-            </select>
-        </div>
-
-        <!-- Subject -->
-        <div>
-            <label class="block text-sm font-semibold text-slate-700 mb-2">
-                Subject
-            </label>
-
-            <input
-                id="assignment-subject"
-                type="text"
-                placeholder="e.g. Maths"
-                class="w-full border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500">
-        </div>
-
-        <!-- Save -->
-        <div class="flex items-end">
-
-            <button
-                onclick="saveTeacherAssignment()"
-                class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-4 py-2 rounded-lg shadow-sm">
-                ➕ Assign Teacher
-            </button>
-
-        </div>
-
-    </div>
-
-    <!-- Message -->
-    <p
-        id="assignment-message"
-        class="hidden text-sm text-center font-semibold mt-4">
-    </p>
-
-
-    <!-- Existing Assignments -->
-    <div class="mt-7">
-
-        <h3 class="font-bold text-slate-800 mb-3">
-            Current Teacher Assignments
-        </h3>
-
-        <div class="overflow-x-auto">
-
-            <table class="w-full text-left text-sm">
-
-                <thead class="bg-slate-50 text-slate-600 uppercase text-xs">
-
-                    <tr>
-                        <th class="p-3">ID</th>
-                        <th class="p-3">Teacher</th>
-                        <th class="p-3">Branch</th>
-                        <th class="p-3">Class / Batch</th>
-                        <th class="p-3">Medium</th>
-                        <th class="p-3">Subject</th>
-                        <th class="p-3">Status</th>
-                    </tr>
-
-                </thead>
-
-                <tbody
-                    id="tbl-assignments"
-                    class="divide-y divide-slate-100 text-slate-700">
-
-                    <tr>
-                        <td
-                            colspan="7"
-                            class="p-4 text-center text-slate-400">
-                            Loading assignments...
-                        </td>
-                    </tr>
-
-                </tbody>
-
-            </table>
-
-        </div>
-
-    </div>
-
-</div>
-
-        <!-- Dashboard Data Grids -->
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            
-            <!-- Absent Students List -->
-            <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
-                <h2 class="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
-                    <span class="w-3 h-3 bg-rose-500 rounded-full inline-block"></span> Absent Students Today
-                </h2>
-                <div class="overflow-x-auto">
-                    <table class="w-full text-left text-sm">
-                        <thead class="bg-slate-50 text-slate-600 uppercase text-xs">
-                            <tr>
-                                <th class="p-3 rounded-l-lg">ID</th>
-                                <th class="p-3">Name</th>
-                                <th class="p-3">Class</th>
-                                <th class="p-3 rounded-r-lg">Parent Contact</th>
-                            </tr>
-                        </thead>
-                        <tbody id="tbl-absent" class="divide-y divide-slate-100 text-slate-700">
-                            <tr><td colspan="4" class="p-4 text-center text-slate-400">Loading data...</td></tr>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-
-            <!-- Recent Fee Transactions -->
-            <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
-                <h2 class="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
-                    <span class="w-3 h-3 bg-emerald-500 rounded-full inline-block"></span> Recent Fee Payments
-                </h2>
-                <div class="overflow-x-auto">
-                    <table class="w-full text-left text-sm">
-                        <thead class="bg-slate-50 text-slate-600 uppercase text-xs">
-                            <tr>
-                                <th class="p-3 rounded-l-lg">Date</th>
-                                <th class="p-3">Student</th>
-                                <th class="p-3">Amount</th>
-                                <th class="p-3 rounded-r-lg">Mode</th>
-                            </tr>
-                        </thead>
-                        <tbody id="tbl-fees" class="divide-y divide-slate-100 text-slate-700">
-                            <tr><td colspan="4" class="p-4 text-center text-slate-400">Loading data...</td></tr>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-
-            <!-- Teacher Attendance Portal Panel -->
-            <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 lg:col-span-2">
-                <h2 class="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
-                    <span class="w-3 h-3 bg-indigo-500 rounded-full inline-block"></span> Staff & Teacher Attendance Today
-                </h2>
-                <div class="overflow-x-auto">
-                    <table class="w-full text-left text-sm">
-                        <thead class="bg-slate-50 text-slate-600 uppercase text-xs">
-                            <tr>
-                                <th class="p-3 rounded-l-lg">ID</th>
-                                <th class="p-3">Teacher Name</th>
-                                <th class="p-3">Role</th>
-                                <th class="p-3">Status</th>
-                                <th class="p-3 text-right rounded-r-lg">Action</th>
-                            </tr>
-                        </thead>
-                        <tbody id="tbl-teachers" class="divide-y divide-slate-100 text-slate-700">
-                            <tr><td colspan="5" class="p-4 text-center text-slate-400">Loading staff data...</td></tr>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-
-        </div>
-    </div>
-
-        <!-- Teacher Permissions Panel -->
-    <div id="permissions-modal"
-         class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-
-        <div class="bg-white w-full max-w-2xl rounded-2xl shadow-2xl p-6">
-
-            <div class="flex justify-between items-center mb-6">
-                <div>
-                    <h2 class="text-xl font-bold text-slate-800">
-                        🔐 Teacher Permissions
-                    </h2>
-                    <p class="text-sm text-slate-500">
-                        Decide karein ki kaunsa teacher kya access kar sakta hai.
-                    </p>
-                </div>
-
-                <button
-                    onclick="closePermissionsPanel()"
-                    class="text-slate-500 hover:text-rose-600 text-2xl font-bold">
-                    ×
-                </button>
-            </div>
-
-            <!-- Teacher Selection -->
-            <div class="mb-5">
-                <label class="block text-sm font-semibold text-slate-700 mb-2">
-                    Select Teacher
-                </label>
-
-                <select
-                    id="permission-teacher"
-                    onchange="loadTeacherPermissions()"
-                    class="w-full border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500">
-
-                    <option value="">
-                        -- Select Teacher --
-                    </option>
-
-                </select>
-            </div>
-
-            <!-- Permissions -->
-            <div id="permissions-options"
-                class="hidden grid grid-cols-1 sm:grid-cols-2 gap-3">
-
-                <!-- Attendance -->
-                <label class="flex items-center gap-3 p-3 border rounded-lg">
-                    <input
-                        type="checkbox"
-                        id="perm-attendance"
-                        class="w-4 h-4">
-                    <span class="font-medium">Attendance</span>
-                </label>
-                <!-- Marks -->
-                <label class="flex items-center gap-3 p-3 border rounded-lg">
-                    <input
-                        type="checkbox"
-                        id="perm-marks"
-                        class="w-4 h-4">
-                    <span class="font-medium">Marks Entry</span>
-                </label>
-                
-                <!-- Add Student -->
-                <label class="flex items-center gap-3 p-3 border rounded-lg">
-                    <input
-                        type="checkbox"
-                        id="perm-add-student"
-                        class="w-4 h-4">
-                    <span class="font-medium">Add Student</span>
-                </label>
-                
-                <!-- Collect Fee -->
-                <label class="flex items-center gap-3 p-3 border rounded-lg">
-                    <input
-                        type="checkbox"
-                        id="perm-collect-fee"
-                        class="w-4 h-4">
-                    <span class="font-medium">Collect Fee</span>
-                </label>
-                
-                <!-- Students -->
-                <label class="flex items-center gap-3 p-3 border rounded-lg">
-                    <input
-                        type="checkbox"
-                        id="perm-students"
-                        class="w-4 h-4">
-                    <span class="font-medium">Student Directory</span>
-                </label>
-                
-                <!-- My Classes -->
-                <label class="flex items-center gap-3 p-3 border rounded-lg">
-                    <input
-                        type="checkbox"
-                        id="perm-classes"
-                        class="w-4 h-4">
-                    <span class="font-medium">My Classes</span>
-                </label>
-            </div>
-            
-            <!-- Save -->
-            <div class="flex justify-end gap-3 mt-6">
-                <button
-                    onclick="closePermissionsPanel()"
-                    class="px-4 py-2 rounded-lg bg-slate-200 hover:bg-slate-300 text-slate-700">
-                    Cancel
-                </button>
-
-                <button
-                    onclick="saveTeacherPermissions()"
-                    class="px-5 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-semibold">
-                    Save Permissions
-                </button>
-
-            </div>
-
-            <p id="permission-message"
-               class="text-sm mt-4 text-center hidden">
-            </p>
-
-        </div>
-    </div>
-<!-- Footer CTA Box with Copyright -->
-<footer class="cta-footer-box">
-    <div class="cta-container">
-        <!-- Call Button -->
-        <a href="tel:+91 6352620106" class="cta-btn call-btn">
-            <span class="cta-icon">📞</span>
-            <div class="cta-text">
-                <span class="cta-label">Call To Action</span>
-                <span class="cta-sub">+91 6352620106</span>
-            </div>
+        <a href="/logout"
+           class="px-3 py-2 rounded-xl text-xs font-medium bg-rose-950/70 hover:bg-rose-900/70 border border-rose-800/70 text-rose-200 transition">
+          Logout
         </a>
+      </div>
+    </div>
+  </header>
 
-        <!-- WhatsApp Button -->
-        <a href="https://wa.me/916352620106" target="_blank" class="cta-btn wa-btn">
-            <span class="cta-icon">💬</span>
-            <div class="cta-text">
-                <span class="cta-label">Msg Me For Any Problem</span>
-                <span class="cta-sub">Chat on WhatsApp</span>
+  <main class="max-w-6xl mx-auto px-4 pt-5 space-y-6">
+
+    <!-- Quick Navigation Pills (Scrollable on small screens) -->
+    <nav class="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
+      <a href="/attendance" class="shrink-0 px-4 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-800 text-xs sm:text-sm font-medium text-slate-200">Attendance</a>
+      <a href="/students" class="shrink-0 px-4 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-800 text-xs sm:text-sm font-medium text-slate-200">Students</a>
+      <a href="/fees" class="shrink-0 px-4 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-800 text-xs sm:text-sm font-medium text-slate-200">Fees</a>
+      <a href="/marks" class="shrink-0 px-4 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-800 text-xs sm:text-sm font-medium text-slate-200">Marks</a>
+      <a href="/scan" class="shrink-0 px-4 py-2.5 rounded-xl bg-indigo-600/20 hover:bg-indigo-600/30 border border-indigo-500/40 text-xs sm:text-sm font-medium text-indigo-300">QR Scan</a>
+    </nav>
+
+    <!-- KPI Summary Cards -->
+    <section class="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+      <div class="rounded-2xl bg-slate-900 border border-slate-800 p-4 sm:p-5">
+        <p class="text-xs text-slate-400">Aaj Present</p>
+        <p id="kpiPresent" class="mt-1.5 text-2xl sm:text-3xl font-bold text-emerald-400">—</p>
+      </div>
+      <div class="rounded-2xl bg-slate-900 border border-slate-800 p-4 sm:p-5">
+        <p class="text-xs text-slate-400">Aaj Absent</p>
+        <p id="kpiAbsent" class="mt-1.5 text-2xl sm:text-3xl font-bold text-rose-400">—</p>
+      </div>
+      <div class="col-span-2 lg:col-span-1 rounded-2xl bg-slate-900 border border-slate-800 p-4 sm:p-5">
+        <p id="kpiMonthLabel" class="text-xs text-slate-400">Monthly Fee Collection</p>
+        <p id="kpiFees" class="mt-1.5 text-2xl sm:text-3xl font-bold text-indigo-400">—</p>
+      </div>
+    </section>
+
+    <!-- Permissions & Class Assignment Grid -->
+    <section class="grid grid-cols-1 lg:grid-cols-2 gap-5">
+
+      <!-- Teacher Permissions Card -->
+      <div class="rounded-2xl bg-slate-900 border border-slate-800 p-5 space-y-4">
+        <div>
+          <h2 class="text-base font-semibold text-white">Teacher Permissions</h2>
+          <p class="text-xs text-slate-400 mt-0.5">Kis teacher ko kaun sa feature access milega</p>
+        </div>
+
+        <div>
+          <label for="permTeacherSelect" class="block text-xs text-slate-300 mb-1.5">Select Teacher</label>
+          <select id="permTeacherSelect" class="w-full rounded-xl bg-slate-950 border border-slate-800 px-3.5 py-2.5 text-sm text-white outline-none focus:border-indigo-500">
+            <option value="">Loading teachers...</option>
+          </select>
+        </div>
+
+        <div id="permissionsList" class="grid grid-cols-2 gap-2.5">
+          <!-- Populated dynamically -->
+        </div>
+
+        <button id="savePermissionsBtn" type="button"
+                class="w-full rounded-xl bg-indigo-600 hover:bg-indigo-500 active:scale-[0.99] py-3 text-sm font-semibold text-white transition">
+          Save Permissions
+        </button>
+      </div>
+
+      <!-- Assign Class & Subject Card -->
+      <div class="rounded-2xl bg-slate-900 border border-slate-800 p-5 space-y-4">
+        <div>
+          <h2 class="text-base font-semibold text-white">Assign Class &amp; Subject</h2>
+          <p class="text-xs text-slate-400 mt-0.5">Teacher ko batch/class aur subject assign karein</p>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label for="assignTeacher" class="block text-xs text-slate-300 mb-1">Teacher</label>
+            <select id="assignTeacher" class="w-full rounded-xl bg-slate-950 border border-slate-800 px-3 py-2.5 text-sm text-white outline-none focus:border-indigo-500">
+              <option value="">Select Teacher</option>
+            </select>
+          </div>
+
+          <div>
+            <label for="assignClass" class="block text-xs text-slate-300 mb-1">Class</label>
+            <select id="assignClass" class="w-full rounded-xl bg-slate-950 border border-slate-800 px-3 py-2.5 text-sm text-white outline-none focus:border-indigo-500">
+              <option value="">Select Class</option>
+            </select>
+          </div>
+
+          <div>
+            <label for="assignSubject" class="block text-xs text-slate-300 mb-1">Subject</label>
+            <input id="assignSubject" type="text" placeholder="e.g. Maths, Science"
+                   class="w-full rounded-xl bg-slate-950 border border-slate-800 px-3 py-2.5 text-sm text-white placeholder-slate-500 outline-none focus:border-indigo-500" />
+          </div>
+
+          <div>
+            <label for="assignBranch" class="block text-xs text-slate-300 mb-1">Branch / Medium</label>
+            <div class="grid grid-cols-2 gap-2">
+              <input id="assignBranch" type="text" placeholder="Branch"
+                     class="w-full rounded-xl bg-slate-950 border border-slate-800 px-3 py-2.5 text-sm text-white placeholder-slate-500 outline-none focus:border-indigo-500" />
+              <input id="assignMedium" type="text" placeholder="Medium"
+                     class="w-full rounded-xl bg-slate-950 border border-slate-800 px-3 py-2.5 text-sm text-white placeholder-slate-500 outline-none focus:border-indigo-500" />
             </div>
-        </a>
-    </div>
-
-    <!-- Copyright Text -->
-    <div class="footer-copyright">
-        &copy; 2026 All Rights Reserved.
-    </div>
-</footer>
-
-<style>
-/* Footer Box Styling */
-.cta-footer-box {
-    background: #ffffff;
-    border-top: 1px solid #eaeaea;
-    padding: 12px 16px;
-    box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.05);
-    width: 100%;
-    box-sizing: border-box;
-    border-radius: 4px;
-}
-
-.cta-container {
-    display: flex;
-    gap: 12px;
-    max-width: 600px;
-    margin: 0 auto;
-}
-
-/* Button Base Styling */
-.cta-btn {
-    flex: 1;
-    display: flex;
-    align-items: center;
-    padding: 10px 14px;
-    border-radius: 12px;
-    text-decoration: none;
-    transition: all 0.3s ease;
-    box-sizing: border-box;
-}
-
-/* Call Button Theme */
-.call-btn {
-    background: #f0f4f8;
-    border: 1px solid #d9e2ec;
-}
-.call-btn:hover {
-    background: #e2e8f0;
-}
-
-/* WhatsApp Button Theme */
-.wa-btn {
-    background: #e1f5fe;
-    border: 1px solid #b3e5fc;
-}
-.wa-btn:hover {
-    background: #b3e5fc;
-}
-
-/* Icon & Text Layout */
-.cta-icon {
-    font-size: 22px;
-    margin-right: 10px;
-}
-
-.cta-text {
-    display: flex;
-    flex-direction: column;
-}
-
-.cta-label {
-    font-size: 13px;
-    font-weight: 700;
-    color: #111827;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-.cta-sub {
-    font-size: 11px;
-    color: #4b5563;
-}
-
-/* Copyright Text Styling */
-.footer-copyright {
-    text-align: center;
-    font-size: 11px;
-    color: #6b7280;
-    margin-top: 10px;
-    border-top: 1px dashed #f0f0f0;
-    padding-top: 8px;
-}
-
-/* Mobile Responsive adjustment */
-@media (max-width: 480px) {
-    .cta-container {
-        flex-direction: column;
-        gap: 8px;
-    }
-}
-</style>
-
-<style>
-/* Footer Box Styling */
-.cta-footer-box {
-    background: #ffffff;
-    border-top: 1px solid #eaeaea;
-    padding: 12px 16px;
-    box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.05);
-    width: 100%;
-    position: relative; /* Agar app mein bilkul niche chipkana hai toh 'position: fixed; bottom: 0; left: 0; z-index: 1000;' kar sakte hain */
-    box-sizing: border-box;
-}
-
-.cta-container {
-    display: flex;
-    gap: 12px;
-    max-width: 600px;
-    margin: 0 auto;
-}
-
-/* Button Base Styling */
-.cta-btn {
-    flex: 1;
-    display: flex;
-    align-items: center;
-    padding: 10px 14px;
-    border-radius: 12px;
-    text-decoration: none;
-    transition: all 0.3s ease;
-    box-sizing: border-box;
-}
-
-/* Call Button Theme (Clean Blue/Dark) */
-.call-btn {
-    background: #f0f4f8;
-    border: 1px solid #d9e2ec;
-}
-.call-btn:hover {
-    background: #e2e8f0;
-}
-
-/* WhatsApp Button Theme (Green) */
-.wa-btn {
-    background: #e1f5fe;
-    border: 1px solid #b3e5fc;
-}
-.wa-btn:hover {
-    background: #b3e5fc;
-}
-
-/* Icon & Text Layout */
-.cta-icon {
-    font-size: 22px;
-    margin-right: 10px;
-}
-
-.cta-text {
-    display: flex;
-    flex-direction: column;
-}
-
-.cta-label {
-    font-size: 13px;
-    font-weight: 700;
-    color: #111827;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-.cta-sub {
-    font-size: 11px;
-    color: #4b5563;
-}
-
-/* Mobile Responsive adjustment */
-@media (max-width: 480px) {
-    .cta-container {
-        flex-direction: column;
-        gap: 8px;
-    }
-}
-</style>
-<script>
-
-    // =====================================================
-    // TEACHER PERMISSIONS PANEL
-    // =====================================================
-
-    function openPermissionsPanel() {
-        const modal = document.getElementById('permissions-modal');
-
-        if (!modal) {
-            console.error('Permissions modal not found');
-            return;
-        }
-
-        modal.classList.remove('hidden');
-
-        loadTeachersForPermissions();
-    }
-
-
-    function closePermissionsPanel() {
-
-        const modal = document.getElementById('permissions-modal');
-        const options = document.getElementById('permissions-options');
-        const select = document.getElementById('permission-teacher');
-        const message = document.getElementById('permission-message');
-
-        if (modal) {
-            modal.classList.add('hidden');
-        }
-
-        if (options) {
-            options.classList.add('hidden');
-        }
-
-        if (select) {
-            select.value = '';
-        }
-
-        if (message) {
-            message.classList.add('hidden');
-        }
-    }
-
-
-    async function loadTeachersForPermissions() {
-
-        const select =
-            document.getElementById('permission-teacher');
-
-        if (!select) {
-            console.error('Teacher select not found');
-            return;
-        }
-
-        select.innerHTML =
-            '<option value="">Loading teachers...</option>';
-
-        try {
-
-            const res =
-                await fetch('/api/get_teacher_attendance');
-
-            const data =
-                await res.json();
-
-            if (data.status !== 'success') {
-                throw new Error(
-                    data.message || 'Teacher data load failed'
-                );
-            }
-
-            select.innerHTML =
-                '<option value="">-- Select Teacher --</option>';
-
-            data.teachers.forEach(teacher => {
-
-                const option =
-                    document.createElement('option');
-
-                option.value = teacher.id;
-
-                option.textContent =
-                    `${teacher.name} (${teacher.id})`;
-
-                select.appendChild(option);
-            });
-
-        } catch (error) {
-
-            console.error(
-                'Teacher loading error:',
-                error
-            );
-
-            select.innerHTML =
-                '<option value="">Unable to load teachers</option>';
-        }
-    }
-
-
-    async function loadTeacherPermissions() {
-
-    const teacherId =
-        document.getElementById(
-            'permission-teacher'
-        ).value;
-
-    const options =
-        document.getElementById(
-            'permissions-options'
-        );
-
-    if (!teacherId) {
-
-        options.classList.add('hidden');
-
-        return;
-    }
-
-    options.classList.remove('hidden');
-
-    // Reset checkboxes
-    document.getElementById(
-        'perm-attendance'
-    ).checked = false;
-
-    document.getElementById(
-        'perm-marks'
-    ).checked = false;
-
-    document.getElementById(
-        'perm-add-student'
-    ).checked = false;
-
-    document.getElementById(
-        'perm-collect-fee'
-    ).checked = false;
-
-    document.getElementById(
-        'perm-students'
-    ).checked = false;
-
-    document.getElementById(
-        'perm-classes'
-    ).checked = false;
-
-    try {
-
-        const res = await fetch(
-            `/api/get_teacher_permissions?teacher_id=${encodeURIComponent(teacherId)}`
-        );
-        if (!res.ok) throw new Error(`Permissions request failed (${res.status})`);
-        const data = await res.json();
-
-        if (data.status !== 'success') {
-
-            console.log(
-                'No saved permissions found yet.'
-            );
-
-            return;
-        }
-
-        const permissions =
-            data.permissions || {};
-
-        document.getElementById(
-            'perm-attendance'
-        ).checked =
-            !!permissions.Attendance;
-
-        document.getElementById(
-            'perm-marks'
-        ).checked =
-            !!permissions.Marks;
-
-        document.getElementById(
-            'perm-add-student'
-        ).checked =
-            !!permissions.Add_Student;
-
-        document.getElementById(
-            'perm-collect-fee'
-        ).checked =
-            !!permissions.Collect_Fee;
-
-        document.getElementById(
-            'perm-students'
-        ).checked =
-            !!permissions.Students;
-
-        document.getElementById(
-            'perm-classes'
-        ).checked =
-            !!permissions.My_Classes;
-
-    } catch (error) {
-        console.error('Permission loading error:', error);
-        const message = document.getElementById('permission-message');
-        if (message) { message.classList.remove('hidden'); message.textContent = '❌ Permissions load nahi hui. Refresh karke try karein.'; message.className = 'text-sm mt-4 text-center text-rose-600 font-semibold'; }
-    }
-}
-
-
-    async function saveTeacherPermissions() {
-
-    const teacherId =
-        document.getElementById(
-            'permission-teacher'
-        ).value;
-
-    if (!teacherId) {
-
-        alert(
-            'Pehle teacher select karein.'
-        );
-
-        return;
-    }
-
-    const permissions = {
-
-        Attendance:
-            document.getElementById(
-                'perm-attendance'
-            ).checked,
-
-        Marks:
-            document.getElementById(
-                'perm-marks'
-            ).checked,
-
-        Add_Student:
-            document.getElementById(
-                'perm-add-student'
-            ).checked,
-
-        Collect_Fee:
-            document.getElementById(
-                'perm-collect-fee'
-            ).checked,
-
-        Students:
-            document.getElementById(
-                'perm-students'
-            ).checked,
-
-        My_Classes:
-            document.getElementById(
-                'perm-classes'
-            ).checked
+          </div>
+        </div>
+
+        <button id="saveAssignmentBtn" type="button"
+                class="w-full rounded-xl bg-emerald-600 hover:bg-emerald-500 active:scale-[0.99] py-3 text-sm font-semibold text-white transition">
+          Assign Teacher
+        </button>
+      </div>
+    </section>
+
+    <!-- Absent Students & Teacher Attendance -->
+    <section class="grid grid-cols-1 lg:grid-cols-2 gap-5">
+
+      <!-- Today Absent List -->
+      <div class="rounded-2xl bg-slate-900 border border-slate-800 p-5">
+        <h2 class="text-base font-semibold text-white mb-3">Aaj Ke Absent Students</h2>
+        <div id="absentList" class="space-y-2.5 max-h-72 overflow-y-auto pr-1">
+          <p class="text-sm text-slate-400">Loading...</p>
+        </div>
+      </div>
+
+      <!-- Teacher Daily Attendance -->
+      <div class="rounded-2xl bg-slate-900 border border-slate-800 p-5">
+        <h2 class="text-base font-semibold text-white mb-3">Teacher Attendance (Aaj)</h2>
+        <div id="teacherAttList" class="space-y-2.5 max-h-72 overflow-y-auto pr-1">
+          <p class="text-sm text-slate-400">Loading...</p>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <script>
+    // Popup & API helpers
+    window.showAppPopup = function (message, type = 'info', title = '') {
+      const backdrop = document.getElementById('appPopupBackdrop');
+      const card = document.getElementById('appPopupCard');
+      const iconEl = document.getElementById('appPopupIcon');
+      const titleEl = document.getElementById('appPopupTitle');
+      const msgEl = document.getElementById('appPopupMessage');
+      const closeBtn = document.getElementById('appPopupCloseBtn');
+      if (!backdrop || !card) return;
+
+      const styles = {
+        success: { defaultTitle: 'Safalta', iconBg: 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30', btnBg: 'bg-emerald-600 hover:bg-emerald-500', symbol: '✓' },
+        error: { defaultTitle: 'Dhyan Dein', iconBg: 'bg-rose-500/15 text-rose-400 border border-rose-500/30', btnBg: 'bg-rose-600 hover:bg-rose-500', symbol: '!' },
+        info: { defaultTitle: 'Soochna', iconBg: 'bg-indigo-500/15 text-indigo-400 border border-indigo-500/30', btnBg: 'bg-indigo-600 hover:bg-indigo-500', symbol: 'i' }
+      };
+      const cfg = styles[type] || styles.info;
+      iconEl.className = `w-10 h-10 rounded-xl flex items-center justify-center shrink-0 text-base font-bold ${cfg.iconBg}`;
+      iconEl.textContent = cfg.symbol;
+      titleEl.textContent = title || cfg.defaultTitle;
+      msgEl.textContent = String(message || 'Kripya dubara koshish karein.');
+      closeBtn.className = `px-5 py-2.5 rounded-xl text-sm font-medium text-white transition ${cfg.btnBg}`;
+
+      backdrop.classList.remove('hidden');
+      backdrop.classList.add('flex');
+      requestAnimationFrame(() => { card.classList.remove('scale-95', 'opacity-0'); card.classList.add('scale-100', 'opacity-100'); });
+
+      const hidePopup = () => {
+        card.classList.remove('scale-100', 'opacity-100');
+        card.classList.add('scale-95', 'opacity-0');
+        setTimeout(() => { backdrop.classList.add('hidden'); backdrop.classList.remove('flex'); }, 160);
+      };
+      closeBtn.onclick = hidePopup;
+      backdrop.onclick = (e) => { if (e.target === backdrop) hidePopup(); };
     };
 
-    try {
-
-        const res = await fetch(
-            '/api/save_teacher_permissions',
-            {
-                method: 'POST',
-
-                headers: {
-                    'Content-Type':
-                        'application/json'
-                },
-
-                body: JSON.stringify({
-                    teacher_id: teacherId,
-                    permissions: permissions
-                })
-            }
-        );
-
-        if (!res.ok) throw new Error(`Permission save failed (${res.status})`);
-        const data = await res.json();
-
-        const message =
-            document.getElementById(
-                'permission-message'
-            );
-
-        message.classList.remove('hidden');
-
-        if (data.status === 'success') {
-
-            message.textContent =
-                '✅ Permissions successfully save ho gayi!';
-
-            message.className =
-                'text-sm mt-4 text-center text-emerald-600 font-semibold';
-
-        } else {
-
-            message.textContent =
-                '❌ ' +
-                (
-                    data.message ||
-                    'Permissions save nahi hui.'
-                );
-
-            message.className =
-                'text-sm mt-4 text-center text-rose-600 font-semibold';
+    window.safeApiRequest = async function (url, options = {}) {
+      try {
+        const res = await fetch(url, { headers: { 'Content-Type': 'application/json', ...(options.headers || {}) }, ...options });
+        let data = {};
+        try { data = await res.json(); } catch (_) { data = { status: 'error', message: 'Server se jaankari sahi tarah nahi mil paayi.' }; }
+        if (!res.ok || data.status === 'error') {
+          const p = data.popup || {};
+          window.showAppPopup(p.message || data.message || 'Kuch samasya aa gayi hai.', 'error', p.title || 'Dhyan Dein');
+          return { ok: false, data };
         }
+        return { ok: true, data };
+      } catch (_) {
+        window.showAppPopup('Internet ya server connection mein dikkat hai. Kripya dubara try karein.', 'error', 'Connection Samasya');
+        return { ok: false, data: null };
+      }
+    };
 
-    } catch (error) {
+    const PERM_KEYS = ['Attendance', 'Marks', 'Add_Student', 'Collect_Fee', 'Students', 'My_Classes'];
+    const PERM_LABELS = {
+      Attendance: 'Attendance',
+      Marks: 'Marks Entry',
+      Add_Student: 'Add Student',
+      Collect_Fee: 'Collect Fee',
+      Students: 'View Students',
+      My_Classes: 'My Classes'
+    };
 
-        console.error(
-            'Permission save error:',
-            error
-        );
-
-        alert(
-            'Server se connection nahi ho paya.'
-        );
-    }
-}
-
-
-    // =====================================================
-    // ADMIN SUMMARY
-    // =====================================================
-
-    async function fetchAdminSummary() {
-
-        try {
-
-            const res = await fetch('/api/admin_summary');
-            if (!res.ok) throw new Error(`Dashboard summary failed (${res.status})`);
-            const data = await res.json();
-
-            if (data.status === 'success') {
-
-                document.getElementById(
-                    'card-present'
-                ).innerText =
-                    data.today_present;
-
-                document.getElementById(
-                    'card-absent'
-                ).innerText =
-                    data.today_absent;
-
-                document.getElementById(
-                    'card-fees'
-                ).title = data.collection_month || 'Current month';
-                document.getElementById(
-                    'card-fees'
-                ).innerText =
-                    '₹' +
-                    Number(
-                        data.monthly_collection || 0
-                    ).toLocaleString('en-IN');
-
-
-                // -----------------------------
-                // ABSENT STUDENTS
-                // -----------------------------
-
-                const absentTbody =
-                    document.getElementById(
-                        'tbl-absent'
-                    );
-
-                if (
-                    !data.absent_students ||
-                    data.absent_students.length === 0
-                ) {
-
-                    absentTbody.innerHTML =
-                        '<tr><td colspan="4" class="p-4 text-center text-emerald-600 font-medium">No absent students recorded today!</td></tr>';
-
-                } else {
-
-                    absentTbody.innerHTML =
-                        data.absent_students.map(
-                            s => `
-                            <tr class="hover:bg-slate-50">
-                                <td class="p-3 font-semibold text-slate-500">${escapeAssignmentHTML(s.student_id || '-')}</td>
-                                <td class="p-3 font-medium text-slate-800">${escapeAssignmentHTML(s.name || '-')}</td>
-                                <td class="p-3">${escapeAssignmentHTML(s.class || '-')}</td>
-                                <td class="p-3">${s.contact && String(s.contact).replace(/[^0-9+]/g, '').length >= 7
-                                    ? `<a class="inline-flex items-center rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700" href="tel:${String(s.contact).replace(/[^0-9+]/g, '')}">📞 Call</a>`
-                                    : '<span class="text-slate-400 text-xs">No number</span>'}</td>
-                            </tr>
-                        `
-                        ).join('');
-                }
-
-
-                // -----------------------------
-                // FEE COLLECTION
-                // -----------------------------
-
-                const feesTbody =
-                    document.getElementById(
-                        'tbl-fees'
-                    );
-
-                if (
-                    !data.recent_fees ||
-                    data.recent_fees.length === 0
-                ) {
-
-                    feesTbody.innerHTML =
-                        '<tr><td colspan="4" class="p-4 text-center text-slate-400">No fee logs available.</td></tr>';
-
-                } else {
-
-                    feesTbody.innerHTML =
-                        data.recent_fees.map(
-                            f => `
-                            <tr class="hover:bg-slate-50">
-
-                                <td class="p-3 text-xs text-slate-500">
-                                    ${f.date || '-'}
-                                </td>
-
-                                <td class="p-3 font-medium text-slate-800">
-                                    ${f.name || '-'}
-                                </td>
-
-                                <td class="p-3 font-bold text-indigo-600">
-                                    ₹${f.amount || '0'}
-                                </td>
-
-                                <td class="p-3 text-xs">
-                                    <span class="bg-slate-100 border px-2 py-1 rounded-md">
-                                        ${f.mode || 'Cash'}
-                                    </span>
-                                </td>
-
-                            </tr>
-                        `
-                        ).join('');
-                }
-            }
-
-        } catch (err) {
-
-            console.error(
-                "Error loading admin summary:",
-                err
-            );
-        }
+    function renderPermissionCheckboxes(perms = {}) {
+      const wrap = document.getElementById('permissionsList');
+      wrap.innerHTML = PERM_KEYS.map((key) => {
+        const checked = Boolean(perms[key]);
+        return `
+          <label class="flex items-center justify-between gap-2 rounded-xl bg-slate-950 border border-slate-800 px-3 py-2.5 cursor-pointer">
+            <span class="text-xs sm:text-sm text-slate-200 truncate">${PERM_LABELS[key] || key}</span>
+            <input type="checkbox" data-perm="${key}" ${checked ? 'checked' : ''}
+                   class="w-4 h-4 accent-indigo-500 rounded cursor-pointer" />
+          </label>
+        `;
+      }).join('');
     }
 
-
-    // =====================================================
-    // TEACHER ATTENDANCE
-    // =====================================================
-
-    async function fetchTeacherAttendance() {
-
-        try {
-
-            const res =
-                await fetch(
-                    '/api/get_teacher_attendance'
-                );
-
-            const data =
-                await res.json();
-
-            if (data.status === 'success') {
-
-                const tbody =
-                    document.getElementById(
-                        'tbl-teachers'
-                    );
-
-                if (
-                    !data.teachers ||
-                    data.teachers.length === 0
-                ) {
-
-                    tbody.innerHTML =
-                        '<tr><td colspan="5" class="p-4 text-center text-slate-400">No teachers found in database.</td></tr>';
-
-                    return;
-                }
-
-                tbody.innerHTML =
-                    data.teachers.map(
-                        t => {
-
-                            const isPresent =
-                                t.status === 'Present';
-
-                            return `
-                                <tr class="hover:bg-slate-50">
-
-                                    <td class="p-3 text-xs font-semibold text-slate-500">
-                                        ${t.id}
-                                    </td>
-
-                                    <td class="p-3 font-medium text-slate-800">
-                                        ${t.name}
-                                    </td>
-
-                                    <td class="p-3 text-xs text-slate-500">
-                                        ${t.role}
-                                    </td>
-
-                                    <td class="p-3">
-
-                                        <span class="text-xs font-bold px-2.5 py-1 rounded-full ${
-                                            isPresent
-                                                ? 'bg-emerald-100 text-emerald-700'
-                                                : 'bg-rose-100 text-rose-700'
-                                        }">
-
-                                            ${t.status}
-
-                                        </span>
-
-                                    </td>
-
-                                    <td class="p-3 text-right space-x-1">
-
-                                        <button
-                                            onclick="markTeacher(${t.row_id}, 'Present')"
-                                            class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs px-3 py-1.5 rounded-lg font-medium transition-colors">
-
-                                            Present
-
-                                        </button>
-
-                                        <button
-                                            onclick="markTeacher(${t.row_id}, 'Absent')"
-                                            class="bg-rose-600 hover:bg-rose-700 text-white text-xs px-3 py-1.5 rounded-lg font-medium transition-colors">
-
-                                            Absent
-
-                                        </button>
-
-                                    </td>
-
-                                </tr>
-                            `;
-                        }
-                    ).join('');
-            }
-
-        } catch (err) {
-
-            console.error(
-                "Error loading teacher data:",
-                err
-            );
-        }
+    async function loadSelectedTeacherPermissions(teacherId) {
+      if (!teacherId) { renderPermissionCheckboxes({}); return; }
+      const { ok, data } = await window.safeApiRequest(`/api/get_teacher_permissions?teacher_id=${encodeURIComponent(teacherId)}`);
+      if (ok) renderPermissionCheckboxes(data.permissions || {});
     }
 
-
-    // =====================================================
-    // MANUAL TEACHER ATTENDANCE
-    // =====================================================
-
-    async function markTeacher(
-        rowId,
-        status
-    ) {
-
-        try {
-
-            const res =
-                await fetch(
-                    '/api/mark_teacher_attendance',
-                    {
-                        method: 'POST',
-
-                        headers: {
-                            'Content-Type':
-                                'application/json'
-                        },
-
-                        body: JSON.stringify({
-                            row_id: rowId,
-                            status: status
-                        })
-                    }
-                );
-
-            const data =
-                await res.json();
-
-            if (data.status === 'success') {
-
-                fetchTeacherAttendance();
-
-            } else {
-
-                alert(
-                    'Error marking status: ' +
-                    data.message
-                );
-            }
-
-        } catch (err) {
-
-            console.error(err);
-
-            alert(
-                'API Request Failed'
-            );
-        }
-    }
-
-
-// =====================================================
-// TEACHER CLASS / BATCH ASSIGNMENT
-// =====================================================
-
-let assignmentTeachers = [];
-
-
-// -----------------------------------------------------
-// LOAD TEACHERS
-// -----------------------------------------------------
-
-async function loadAssignmentTeachers() {
-    const select = document.getElementById('assignment-teacher');
-    if (!select) return;
-    try {
-        const res = await fetch('/api/admin_summary');
-        const data = await res.json();
-        if (data.status !== 'success') throw new Error(data.message || 'Unable to load teachers');
-        assignmentTeachers = data.teachers || [];
-        select.innerHTML = '<option value="">-- Select Teacher --</option>';
-        assignmentTeachers.forEach(teacher => {
-            const option = document.createElement('option');
-            option.value = teacher.teacher_id;
-            option.textContent = `${teacher.teacher_name} (${teacher.teacher_id})`;
-            option.dataset.teacherName = teacher.teacher_name;
-            select.appendChild(option);
-        });
-    } catch (error) {
-        console.error('Assignment teacher loading error:', error);
-        select.innerHTML = '<option value="">Unable to load teachers</option>';
-    }
-}
-
-
-// -----------------------------------------------------
-// SET TEACHER NAME
-// -----------------------------------------------------
-
-function setAssignmentTeacherName() {
-
-    const select =
-        document.getElementById('assignment-teacher');
-
-    if (!select) return;
-
-    const option =
-        select.options[select.selectedIndex];
-
-    if (!option) return;
-
-    console.log(
-        'Selected teacher:',
-        option.dataset.teacherName || ''
-    );
-}
-
-
-// -----------------------------------------------------
-// LOAD BATCHES / CLASSES
-// -----------------------------------------------------
-
-async function loadAssignmentClasses() {
-    const select = document.getElementById('assignment-class');
-    if (!select) return;
-    try {
-        const res = await fetch('/api/admin_summary');
-        const data = await res.json();
-        if (data.status !== 'success') throw new Error(data.message || 'Unable to load batches');
-        select.innerHTML = '<option value="">-- Select Batch --</option>';
-        (data.classes || []).forEach(className => {
-            const option = document.createElement('option');
-            option.value = className;
-            option.textContent = className;
-            select.appendChild(option);
-        });
-    } catch (error) {
-        console.error('Assignment class loading error:', error);
-        select.innerHTML = '<option value="">Unable to load batches</option>';
-    }
-}
-
-
-// -----------------------------------------------------
-// SAVE ASSIGNMENT
-// -----------------------------------------------------
-
-async function saveTeacherAssignment() {
-
-    const teacherSelect =
-        document.getElementById('assignment-teacher');
-
-    const branch =
-        document.getElementById('assignment-branch').value.trim();
-
-    const className =
-        document.getElementById('assignment-class').value.trim();
-
-    const medium =
-        document.getElementById('assignment-medium').value.trim();
-
-    const subject =
-        document.getElementById('assignment-subject').value.trim();
-
-    const message =
-        document.getElementById('assignment-message');
-
-
-    const teacherId =
-        teacherSelect.value;
-
-    const selectedOption =
-        teacherSelect.options[
-            teacherSelect.selectedIndex
-        ];
-
-    const teacherName =
-        selectedOption?.dataset.teacherName || '';
-
-
-    // -----------------------------
-    // VALIDATION
-    // -----------------------------
-
-    if (!teacherId) {
-
-        alert('Pehle teacher select karein.');
-
+    async function loadTeacherAttendance() {
+      const container = document.getElementById('teacherAttList');
+      const { ok, data } = await window.safeApiRequest('/api/get_teacher_attendance');
+      if (!ok) return;
+      const list = data.teachers || [];
+      if (!list.length) {
+        container.innerHTML = '<p class="text-sm text-slate-400">Koi teacher record nahi mila.</p>';
         return;
+      }
+      container.innerHTML = list.map((t) => {
+        const isPresent = String(t.status).toLowerCase() === 'present';
+        return `
+          <div class="flex items-center justify-between gap-3 rounded-xl bg-slate-950 border border-slate-800 px-3.5 py-2.5">
+            <div class="min-w-0">
+              <p class="text-sm font-medium text-white truncate">${t.name}</p>
+              <p class="text-xs text-slate-400">${t.role || 'Teacher'}</p>
+            </div>
+            <div class="flex items-center gap-1.5 shrink-0">
+              <button type="button" onclick="setTeacherAtt(${t.row_id}, 'Present')"
+                      class="px-2.5 py-1.5 rounded-lg text-xs font-medium ${isPresent ? 'bg-emerald-600 text-white' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'}">
+                Present
+              </button>
+              <button type="button" onclick="setTeacherAtt(${t.row_id}, 'Absent')"
+                      class="px-2.5 py-1.5 rounded-lg text-xs font-medium ${!isPresent ? 'bg-rose-600 text-white' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'}">
+                Absent
+              </button>
+            </div>
+          </div>
+        `;
+      }).join('');
     }
 
-    if (!className) {
+    window.setTeacherAtt = async function (rowId, status) {
+      const { ok, data } = await window.safeApiRequest('/api/mark_teacher_attendance', {
+        method: 'POST',
+        body: JSON.stringify({ row_id: rowId, status })
+      });
+      if (ok) {
+        window.showAppPopup(data.message || 'Attendance update ho gayi.', 'success');
+        loadTeacherAttendance();
+      }
+    };
 
-        alert('Pehle Batch / Class select karein.');
+    async function loadDashboard() {
+      const { ok, data } = await window.safeApiRequest('/api/admin_summary');
+      if (!ok) return;
 
+      document.getElementById('kpiPresent').textContent = data.today_present ?? 0;
+      document.getElementById('kpiAbsent').textContent = data.today_absent ?? 0;
+      document.getElementById('kpiMonthLabel').textContent = `Fee Collection (${data.collection_month || 'This Month'})`;
+      const amt = Number(data.monthly_collection || 0);
+      document.getElementById('kpiFees').textContent = `₹${amt.toLocaleString('en-IN')}`;
+
+      const absentWrap = document.getElementById('absentList');
+      const absents = data.absent_students || [];
+      if (!absents.length) {
+        absentWrap.innerHTML = '<p class="text-sm text-emerald-400/90">Aaj koi student absent nahi hai.</p>';
+      } else {
+        absentWrap.innerHTML = absents.map((s) => `
+          <div class="flex items-center justify-between gap-2 rounded-xl bg-slate-950 border border-slate-800 px-3.5 py-2.5">
+            <div class="min-w-0">
+              <p class="text-sm font-medium text-white truncate">${s.name || 'Student'}</p>
+              <p class="text-xs text-slate-400">${s.class || ''}</p>
+            </div>
+            <span class="text-xs text-slate-300 shrink-0">${s.contact || ''}</span>
+          </div>
+        `).join('');
+      }
+
+      const teachers = data.teachers || [];
+      const permSelect = document.getElementById('permTeacherSelect');
+      const assignSelect = document.getElementById('assignTeacher');
+      const currentPermVal = permSelect.value;
+
+      permSelect.innerHTML = teachers.length
+        ? teachers.map((t) => `<option value="${t.teacher_id}">${t.teacher_name}</option>`).join('')
+        : '<option value="">No teachers found</option>';
+
+      assignSelect.innerHTML = '<option value="">Select Teacher</option>' + teachers.map((t) =>
+        `<option value="${t.teacher_id}" data-name="${t.teacher_name}">${t.teacher_name}</option>`
+      ).join('');
+
+      if (currentPermVal && teachers.some((t) => t.teacher_id === currentPermVal)) {
+        permSelect.value = currentPermVal;
+      }
+      if (permSelect.value) {
+        loadSelectedTeacherPermissions(permSelect.value);
+      } else {
+        renderPermissionCheckboxes({});
+      }
+
+      const classSelect = document.getElementById('assignClass');
+      const classes = data.classes || [];
+      classSelect.innerHTML = '<option value="">Select Class</option>' + classes.map((c) =>
+        `<option value="${c}">${c}</option>`
+      ).join('');
+
+      loadTeacherAttendance();
+    }
+
+    document.getElementById('permTeacherSelect')?.addEventListener('change', (e) => {
+      loadSelectedTeacherPermissions(e.target.value);
+    });
+
+    document.getElementById('savePermissionsBtn')?.addEventListener('click', async () => {
+      const teacherId = document.getElementById('permTeacherSelect').value;
+      if (!teacherId) {
+        window.showAppPopup('Kripya pehle teacher chunein.', 'info');
         return;
-    }
-
-
-    try {
-
-        const res =
-            await fetch(
-                '/api/admin_summary',
-                {
-                    method: 'POST',
-
-                    headers: {
-                        'Content-Type':
-                            'application/json'
-                    },
-
-                    body: JSON.stringify({
-                        action: 'save_assignment',
-
-                        teacher_id:
-                            teacherId,
-
-                        teacher_name:
-                            teacherName,
-
-                        branch:
-                            branch,
-
-                        class_name:
-                            className,
-
-                        medium:
-                            medium,
-
-                        subject:
-                            subject
-                    })
-                }
-            );
-
-
-        const data =
-            await res.json();
-
-
-        message.classList.remove('hidden');
-
-
-        if (data.status === 'success') {
-
-            message.textContent =
-                '✅ Teacher successfully assigned!';
-
-            message.className =
-                'text-sm text-center font-semibold mt-4 text-emerald-600';
-
-
-            // Clear form
-
-            teacherSelect.value = '';
-
-            document.getElementById(
-                'assignment-branch'
-            ).value = '';
-
-            document.getElementById(
-                'assignment-class'
-            ).value = '';
-
-            document.getElementById(
-                'assignment-medium'
-            ).value = '';
-
-            document.getElementById(
-                'assignment-subject'
-            ).value = '';
-
-
-            // Refresh table
-
-            loadTeacherAssignments();
-
-
-        } else {
-
-            message.textContent =
-                '❌ ' +
-                (
-                    data.message ||
-                    'Assignment save nahi hua.'
-                );
-
-            message.className =
-                'text-sm text-center font-semibold mt-4 text-rose-600';
-        }
-
-
-    } catch (error) {
-
-        console.error(
-            'Assignment save error:',
-            error
-        );
-
-        message.classList.remove('hidden');
-
-        message.textContent =
-            '❌ Server se connection nahi ho paya.';
-
-        message.className =
-            'text-sm text-center font-semibold mt-4 text-rose-600';
-    }
-}
-
-
-// -----------------------------------------------------
-// LOAD EXISTING ASSIGNMENTS
-// -----------------------------------------------------
-
-async function loadTeacherAssignments() {
-
-    const tbody =
-        document.getElementById(
-            'tbl-assignments'
-        );
-
-    if (!tbody) return;
-
-
-    tbody.innerHTML =
-        `<tr>
-            <td colspan="7"
-                class="p-4 text-center text-slate-400">
-                Loading assignments...
-            </td>
-        </tr>`;
-
-
-    try {
-
-        const res =
-            await fetch('/api/admin_summary');
-
-        const data =
-            await res.json();
-
-
-        if (data.status !== 'success') {
-
-            throw new Error(
-                data.message ||
-                'Unable to load assignments'
-            );
-        }
-
-
-        const assignments =
-            data.assignments || [];
-
-
-        if (assignments.length === 0) {
-
-            tbody.innerHTML =
-                `<tr>
-                    <td colspan="7"
-                        class="p-4 text-center text-slate-400">
-                        No teacher assignments found.
-                    </td>
-                </tr>`;
-
-            return;
-        }
-
-
-        tbody.innerHTML =
-            assignments.map(
-                assignment => {
-
-                    const isActive =
-                        String(
-                            assignment.status || ''
-                        ).toLowerCase()
-                        === 'active';
-
-
-                    return `
-                        <tr class="hover:bg-slate-50">
-
-                            <td class="p-3 text-xs font-semibold text-slate-500">
-                                ${escapeAssignmentHTML(
-                                    assignment.assignment_id
-                                )}
-                            </td>
-
-                            <td class="p-3">
-
-                                <div class="font-medium text-slate-800">
-                                    ${escapeAssignmentHTML(
-                                        assignment.teacher_name
-                                    )}
-                                </div>
-
-                                <div class="text-xs text-slate-400">
-                                    ${escapeAssignmentHTML(
-                                        assignment.teacher_id
-                                    )}
-                                </div>
-
-                            </td>
-
-                            <td class="p-3">
-                                ${escapeAssignmentHTML(
-                                    assignment.branch || '-'
-                                )}
-                            </td>
-
-                            <td class="p-3 font-medium">
-                                ${escapeAssignmentHTML(
-                                    assignment.class || '-'
-                                )}
-                            </td>
-
-                            <td class="p-3">
-                                ${escapeAssignmentHTML(
-                                    assignment.medium || '-'
-                                )}
-                            </td>
-
-                            <td class="p-3">
-                                ${escapeAssignmentHTML(
-                                    assignment.subject || '-'
-                                )}
-                            </td>
-
-                            <td class="p-3">
-
-                                <span class="
-                                    text-xs
-                                    font-bold
-                                    px-2.5
-                                    py-1
-                                    rounded-full
-                                    ${
-                                        isActive
-                                        ? 'bg-emerald-100 text-emerald-700'
-                                        : 'bg-slate-100 text-slate-500'
-                                    }
-                                ">
-                                    ${escapeAssignmentHTML(
-                                        assignment.status || '-'
-                                    )}
-                                </span>
-
-                            </td>
-
-                        </tr>
-                    `;
-                }
-            ).join('');
-
-
-    } catch (error) {
-
-        console.error(
-            'Assignment loading error:',
-            error
-        );
-
-        tbody.innerHTML =
-            `<tr>
-                <td colspan="7"
-                    class="p-4 text-center text-rose-500">
-                    Assignments load nahi ho payi.
-                </td>
-            </tr>`;
-    }
-}
-
-
-// -----------------------------------------------------
-// SAFE HTML ESCAPE
-// -----------------------------------------------------
-
-function escapeAssignmentHTML(value) {
-
-    return String(value ?? '')
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#039;');
-}
-
-
-    // =====================================================
-    // INITIALIZE DASHBOARD
-    // =====================================================
-
-    document.addEventListener(
-        'DOMContentLoaded',
-        () => {
-
-            fetchAdminSummary();
-            loadAssignmentTeachers();
-            loadAssignmentClasses();
-            loadTeacherAssignments();
-            fetchTeacherAttendance();
-
-        }
-    );
-
-</script>
+      }
+      const permissions = {};
+      document.querySelectorAll('#permissionsList input[type="checkbox"]').forEach((cb) => {
+        permissions[cb.dataset.perm] = cb.checked;
+      });
+      const { ok, data } = await window.safeApiRequest('/api/save_teacher_permissions', {
+        method: 'POST',
+        body: JSON.stringify({ teacher_id: teacherId, permissions })
+      });
+      if (ok) {
+        window.showAppPopup(data.message || 'Permissions save ho gayi.', 'success');
+      }
+    });
+
+    document.getElementById('saveAssignmentBtn')?.addEventListener('click', async () => {
+      const tSelect = document.getElementById('assignTeacher');
+      const teacherId = tSelect.value;
+      const teacherName = tSelect.options[tSelect.selectedIndex]?.dataset?.name || '';
+      const className = document.getElementById('assignClass').value;
+      const subject = document.getElementById('assignSubject').value.trim();
+      const branch = document.getElementById('assignBranch').value.trim() || 'Main';
+      const medium = document.getElementById('assignMedium').value.trim();
+
+      if (!teacherId || !className || !subject) {
+        window.showAppPopup('Teacher, class aur subject bharna zaroori hai.', 'info');
+        return;
+      }
+
+      const { ok, data } = await window.safeApiRequest('/api/admin_summary', {
+        method: 'POST',
+        body: JSON.stringify({
+          action: 'save_assignment',
+          teacher_id: teacherId,
+          teacher_name: teacherName,
+          class_name: className,
+          subject,
+          branch,
+          medium
+        })
+      });
+
+      if (ok) {
+        window.showAppPopup(data.message || 'Assignment save ho gaya.', 'success');
+        document.getElementById('assignSubject').value = '';
+      }
+    });
+
+    document.getElementById('refreshBtn')?.addEventListener('click', loadDashboard);
+    renderPermissionCheckboxes({});
+    loadDashboard();
+  </script>
 </body>
 </html>
