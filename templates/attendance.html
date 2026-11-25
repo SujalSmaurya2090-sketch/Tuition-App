@@ -1,208 +1,279 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Rapid Attendance Entry</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-        body { font-family: sans-serif; background-color: #f8fafc; }
-    </style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Daily Attendance • Ample Vision</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    * { -webkit-tap-highlight-color: transparent; }
+    body { font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+  </style>
 </head>
-<body class="p-3 sm:p-6">
+<body class="min-h-screen bg-slate-950 text-slate-100 pb-24">
 
-<div class="max-w-xl mx-auto bg-white rounded-2xl shadow-lg border border-gray-100 p-4 sm:p-6">
-    <div class="flex justify-between items-center mb-4">
-        <h2 class="text-xl font-bold text-gray-800 flex items-center gap-2">
-            📋 Rapid Attendance Entry
-        </h2>
-        <a href="/" class="text-sm text-indigo-600 hover:underline">← Home</a>
-    </div>
-
-    <!-- Alert Box -->
-    <div id="alertBox" class="hidden mb-4 p-3 text-sm rounded-xl font-medium"></div>
-
-    <div class="space-y-4 mb-6">
-        <div>
-            <label class="block text-xs font-bold uppercase text-gray-500 mb-1">Select Batch / Class:</label>
-            <select id="classSelect" onchange="loadStudents()" class="w-full h-12 px-3 border-2 border-indigo-500 rounded-xl font-bold text-indigo-900 bg-white focus:outline-none">
-                <option value="">-- Select Class --</option>
-            </select>
+  <!-- Reusable Popup Modal -->
+  <div id="appPopupBackdrop" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+    <div id="appPopupCard" class="w-full max-w-sm rounded-2xl bg-slate-900 border border-slate-800 shadow-2xl overflow-hidden transform transition-all scale-95 opacity-0 duration-200">
+      <div class="p-5">
+        <div class="flex items-start gap-3.5">
+          <div id="appPopupIcon" class="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 text-base font-bold"></div>
+          <div class="min-w-0 flex-1">
+            <h3 id="appPopupTitle" class="text-base font-semibold text-white"></h3>
+            <p id="appPopupMessage" class="mt-1 text-sm text-slate-300 leading-relaxed"></p>
+          </div>
         </div>
-
-        <div>
-            <label class="block text-xs font-bold uppercase text-gray-500 mb-1">Date:</label>
-            <input type="date" id="attDate" class="w-full h-10 px-3 border border-gray-300 rounded-xl bg-gray-50 font-medium text-gray-700">
+        <div class="mt-5 flex justify-end">
+          <button id="appPopupCloseBtn" type="button" class="px-5 py-2.5 rounded-xl text-sm font-medium text-white transition">
+            Theek Hai
+          </button>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Header -->
+  <header class="sticky top-0 z-30 bg-slate-950/90 backdrop-blur border-b border-slate-800/80">
+    <div class="max-w-2xl mx-auto px-4 py-3.5 flex items-center justify-between gap-3">
+      <div>
+        <p class="text-[11px] uppercase tracking-wider text-indigo-400 font-semibold">Ample Vision</p>
+        <h1 class="text-base sm:text-lg font-bold text-white">Daily Attendance</h1>
+      </div>
+      <a href="/" class="px-3.5 py-2 rounded-xl text-xs sm:text-sm font-medium bg-slate-900 hover:bg-slate-800 border border-slate-800 text-indigo-300 transition">
+        ← Home
+      </a>
+    </div>
+  </header>
+
+  <main class="max-w-2xl mx-auto px-4 pt-5 space-y-5">
+
+    <!-- Filters Card -->
+    <section class="rounded-2xl bg-slate-900 border border-slate-800 p-4 sm:p-5 space-y-4">
+      <div>
+        <label for="classSelect" class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">Class / Batch</label>
+        <select id="classSelect" onchange="loadStudents()"
+                class="w-full h-12 rounded-xl bg-slate-950 border border-slate-800 focus:border-indigo-500 px-3.5 text-sm font-semibold text-white outline-none">
+          <option value="">-- Select Class --</option>
+        </select>
+      </div>
+
+      <div class="flex items-center justify-between gap-3">
+        <div class="flex-1">
+          <label for="attDate" class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">Date</label>
+          <input id="attDate" type="date"
+                 class="w-full h-11 rounded-xl bg-slate-950 border border-slate-800 focus:border-indigo-500 px-3.5 text-sm text-white outline-none" />
+        </div>
+        <div class="text-right pt-5 shrink-0">
+          <span id="summaryCount" class="text-xs text-slate-400">Present: 0 • Absent: 0</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Student List -->
+    <section id="studentListContainer" class="space-y-2.5">
+      <div class="rounded-2xl bg-slate-900/60 border border-slate-800/80 p-6 text-center text-sm text-slate-400">
+        Students dekhne ke liye upar se class chunein.
+      </div>
+    </section>
+
+    <!-- Sticky Bottom Submit -->
+    <div class="fixed bottom-0 inset-x-0 z-20 bg-slate-950/90 backdrop-blur border-t border-slate-800/80 p-3.5">
+      <div class="max-w-2xl mx-auto">
+        <button id="submitBtn" type="button" onclick="submitAttendance()"
+                class="w-full h-12 rounded-xl bg-emerald-600 hover:bg-emerald-500 active:scale-[0.99] text-white font-semibold text-sm shadow-lg shadow-emerald-600/20 transition">
+          Save Attendance
+        </button>
+      </div>
     </div>
 
-    <!-- Student Cards Container -->
-    <div id="studentListContainer" class="space-y-3 mb-6">
-        <p class="text-center text-gray-400 py-4">Please select a class to load students</p>
-    </div>
+  </main>
 
-    <button id="submitBtn" onclick="submitAttendance()" class="w-full h-12 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl shadow-md flex items-center justify-center gap-2 transition-all">
-        Submit Attendance
-    </button>
-</div>
+  <script>
+    window.showAppPopup = function (message, type = 'info', title = '') {
+      const backdrop = document.getElementById('appPopupBackdrop');
+      const card = document.getElementById('appPopupCard');
+      const iconEl = document.getElementById('appPopupIcon');
+      const titleEl = document.getElementById('appPopupTitle');
+      const msgEl = document.getElementById('appPopupMessage');
+      const closeBtn = document.getElementById('appPopupCloseBtn');
+      if (!backdrop || !card) return;
 
-<script>
+      const styles = {
+        success: { defaultTitle: 'Safalta', iconBg: 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30', btnBg: 'bg-emerald-600 hover:bg-emerald-500', symbol: '✓' },
+        error: { defaultTitle: 'Dhyan Dein', iconBg: 'bg-rose-500/15 text-rose-400 border border-rose-500/30', btnBg: 'bg-rose-600 hover:bg-rose-500', symbol: '!' },
+        info: { defaultTitle: 'Soochna', iconBg: 'bg-indigo-500/15 text-indigo-400 border border-indigo-500/30', btnBg: 'bg-indigo-600 hover:bg-indigo-500', symbol: 'i' }
+      };
+      const cfg = styles[type] || styles.info;
+      iconEl.className = `w-10 h-10 rounded-xl flex items-center justify-center shrink-0 text-base font-bold ${cfg.iconBg}`;
+      iconEl.textContent = cfg.symbol;
+      titleEl.textContent = title || cfg.defaultTitle;
+      msgEl.textContent = String(message || 'Kripya dubara koshish karein.');
+      closeBtn.className = `px-5 py-2.5 rounded-xl text-sm font-medium text-white transition ${cfg.btnBg}`;
+
+      backdrop.classList.remove('hidden');
+      backdrop.classList.add('flex');
+      requestAnimationFrame(() => { card.classList.remove('scale-95', 'opacity-0'); card.classList.add('scale-100', 'opacity-100'); });
+
+      const hidePopup = () => {
+        card.classList.remove('scale-100', 'opacity-100');
+        card.classList.add('scale-95', 'opacity-0');
+        setTimeout(() => { backdrop.classList.add('hidden'); backdrop.classList.remove('flex'); }, 160);
+      };
+      closeBtn.onclick = hidePopup;
+      backdrop.onclick = (e) => { if (e.target === backdrop) hidePopup(); };
+    };
+
+    window.safeApiRequest = async function (url, options = {}) {
+      try {
+        const res = await fetch(url, { headers: { 'Content-Type': 'application/json', ...(options.headers || {}) }, ...options });
+        let data = {};
+        try { data = await res.json(); } catch (_) { data = { status: 'error', message: 'Server se jaankari sahi tarah nahi mil paayi.' }; }
+        if (!res.ok || data.status === 'error') {
+          const p = data.popup || {};
+          window.showAppPopup(p.message || data.message || 'Kuch samasya aa gayi hai.', 'error', p.title || 'Dhyan Dein');
+          return { ok: false, data };
+        }
+        return { ok: true, data };
+      } catch (_) {
+        window.showAppPopup('Internet ya server connection mein dikkat hai. Kripya dubara try karein.', 'error', 'Connection Samasya');
+        return { ok: false, data: null };
+      }
+    };
+
     function getIndiaDate() {
-    return new Intl.DateTimeFormat('en-CA', {
+      return new Intl.DateTimeFormat('en-CA', {
         timeZone: 'Asia/Kolkata',
         year: 'numeric',
         month: '2-digit',
         day: '2-digit'
-    }).format(new Date());
-}
-
-document.getElementById('attDate').value = getIndiaDate();
-
-    window.onload = function() {
-        fetch('/get_classes')
-            .then(res => res.json())
-            .then(data => {
-                const select = document.getElementById('classSelect');
-                select.innerHTML = '<option value="">-- Select Class --</option>';
-                data.classes.forEach(cls => {
-                    select.innerHTML += `<option value="${cls}">${cls}</option>`;
-                });
-            })
-            .catch(err => showAlert("Failed to fetch classes from database", "red"));
-    };
-
-    function showAlert(msg, color) {
-        const box = document.getElementById('alertBox');
-        box.classList.remove('hidden', 'bg-red-100', 'text-red-700', 'bg-green-100', 'text-green-700', 'bg-yellow-100', 'text-yellow-700');
-        if (color === 'red') box.classList.add('bg-red-100', 'text-red-700');
-        else if (color === 'green') box.classList.add('bg-green-100', 'text-green-700');
-        else box.classList.add('bg-yellow-100', 'text-yellow-700');
-        box.innerText = msg;
+      }).format(new Date());
     }
 
-    function loadStudents() {
-        const selectedClass = document.getElementById('classSelect').value;
-        const container = document.getElementById('studentListContainer');
+    document.getElementById('attDate').value = getIndiaDate();
 
-        if (!selectedClass) {
-            container.innerHTML = `<p class="text-center text-gray-400 py-4">Please select a class to load students</p>`;
-            return;
-        }
+    function updateSummaryCounts() {
+      const btns = document.querySelectorAll('.status-btn');
+      let present = 0;
+      let absent = 0;
+      btns.forEach(b => {
+        if (b.dataset.status === 'Absent') absent++;
+        else present++;
+      });
+      document.getElementById('summaryCount').textContent = `Present: ${present} • Absent: ${absent}`;
+    }
 
-        container.innerHTML = `<p class="text-center text-indigo-600 font-medium py-4">Loading students...</p>`;
+    window.onload = async function () {
+      const { ok, data } = await window.safeApiRequest('/get_classes');
+      if (!ok) return;
+      const select = document.getElementById('classSelect');
+      select.innerHTML = '<option value="">-- Select Class --</option>';
+      (data.classes || []).forEach(cls => {
+        const opt = document.createElement('option');
+        opt.value = cls;
+        opt.textContent = cls;
+        select.appendChild(opt);
+      });
+    };
 
-        fetch(`/get_students/${encodeURIComponent(selectedClass)}`)
-            .then(res => res.json())
-            .then(data => {
-                container.innerHTML = "";
-                if (!data.students || data.students.length === 0) {
-                    container.innerHTML = `<p class="text-center text-red-500 py-4">No active students found in this class.</p>`;
-                    return;
-                }
+    async function loadStudents() {
+      const selectedClass = document.getElementById('classSelect').value;
+      const container = document.getElementById('studentListContainer');
+      updateSummaryCounts();
 
-                data.students.forEach(st => {
-    container.innerHTML += `
-        <div class="student-card flex items-center justify-between p-3.5 bg-gray-50 rounded-xl border border-gray-200"
-             data-id="${st.Student_ID}" 
-             data-name="${st.Full_Name}">
-            <div>
-                <div class="font-bold text-gray-800">${st.Full_Name}</div>
-                <div class="text-xs text-gray-400 font-mono">ID: ${st.Student_ID}</div>
-            </div>
-            <button type="button" 
-                    onclick="toggleStatus(this)" 
-                    class="status-btn px-5 py-2 rounded-lg text-sm font-bold transition-all bg-emerald-500 text-white">
-                Present
-            </button>
+      if (!selectedClass) {
+        container.innerHTML = '<div class="rounded-2xl bg-slate-900/60 border border-slate-800/80 p-6 text-center text-sm text-slate-400">Students dekhne ke liye upar se class chunein.</div>';
+        return;
+      }
+
+      container.innerHTML = '<div class="rounded-2xl bg-slate-900 border border-slate-800 p-6 text-center text-sm text-indigo-400">Loading students...</div>';
+
+      const { ok, data } = await window.safeApiRequest(`/get_students/${encodeURIComponent(selectedClass)}`);
+      if (!ok) {
+        container.innerHTML = '<div class="rounded-2xl bg-slate-900 border border-slate-800 p-6 text-center text-sm text-rose-400">Student list load nahi ho paayi.</div>';
+        return;
+      }
+
+      const list = data.students || [];
+      if (!list.length) {
+        container.innerHTML = '<div class="rounded-2xl bg-slate-900 border border-slate-800 p-6 text-center text-sm text-slate-400">Is class mein koi active student nahi mila.</div>';
+        return;
+      }
+
+      container.innerHTML = list.map(st => `
+        <div class="student-card flex items-center justify-between gap-3 rounded-2xl bg-slate-900 border border-slate-800 p-3.5"
+             data-id="${String(st.Student_ID).replaceAll('"', '&quot;')}"
+             data-name="${String(st.Full_Name).replaceAll('"', '&quot;')}">
+          <div class="min-w-0">
+            <p class="text-sm font-semibold text-white truncate">${String(st.Full_Name || '')}</p>
+            <p class="text-xs text-slate-400">ID: ${String(st.Student_ID || '')}</p>
+          </div>
+          <button type="button" data-status="Present" onclick="toggleStatus(this)"
+                  class="status-btn px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold bg-emerald-600 text-white shrink-0 transition">
+            Present
+          </button>
         </div>
-    `;
-});
-            })
-            .catch(err => {
-                container.innerHTML = `<p class="text-center text-red-500 py-4">Error loading student list.</p>`;
-            });
+      `).join('');
+
+      updateSummaryCounts();
     }
 
     function toggleStatus(btn) {
-        if (btn.innerText.trim() === 'Present') {
-            btn.innerText = 'Absent';
-            btn.className = 'status-btn px-5 py-2 rounded-lg text-sm font-bold transition-all bg-rose-500 text-white';
-        } else {
-            btn.innerText = 'Present';
-            btn.className = 'status-btn px-5 py-2 rounded-lg text-sm font-bold transition-all bg-emerald-500 text-white';
-        }
+      if (btn.dataset.status === 'Present') {
+        btn.dataset.status = 'Absent';
+        btn.textContent = 'Absent';
+        btn.className = 'status-btn px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold bg-rose-600 text-white shrink-0 transition';
+      } else {
+        btn.dataset.status = 'Present';
+        btn.textContent = 'Present';
+        btn.className = 'status-btn px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold bg-emerald-600 text-white shrink-0 transition';
+      }
+      updateSummaryCounts();
     }
 
-    function submitAttendance() {
-        const className = document.getElementById('classSelect').value;
-        const attDate = document.getElementById('attDate').value;
-        const submitBtn = document.getElementById('submitBtn');
+    async function submitAttendance() {
+      const className = document.getElementById('classSelect').value;
+      const attDate = document.getElementById('attDate').value;
+      const submitBtn = document.getElementById('submitBtn');
 
-        if (!className) {
-            showAlert("Please select a class first!", "yellow");
-            return;
+      if (!className) {
+        window.showAppPopup('Kripya pehle class chunein.', 'info');
+        return;
+      }
+
+      const cards = document.querySelectorAll('.student-card');
+      const attendanceData = [];
+      cards.forEach(card => {
+        const sId = card.getAttribute('data-id');
+        const sName = card.getAttribute('data-name');
+        const btn = card.querySelector('.status-btn');
+        const status = btn ? btn.dataset.status : 'Present';
+        if (sId) {
+          attendanceData.push({ student_id: sId, student_name: sName, status });
         }
+      });
 
-        const cards = document.querySelectorAll('.student-card');
-        const attendanceData = [];
+      if (!attendanceData.length) {
+        window.showAppPopup('Save karne ke liye koi student record nahi mila.', 'info');
+        return;
+      }
 
-        cards.forEach(card => {
-            const sId = card.getAttribute('data-id');
-            const sName = card.getAttribute('data-name');
-            const btn = card.querySelector('.status-btn');
-            const status = btn ? btn.innerText.trim() : 'Present';
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Saving...';
 
-            if (sId && sName) {
-                attendanceData.push({
-                    student_id: sId,
-                    student_name: sName,
-                    status: status
-                });
-            }
-        });
+      const { ok, data } = await window.safeApiRequest('/save_attendance', {
+        method: 'POST',
+        body: JSON.stringify({ class_name: className, date: attDate, attendance_data: attendanceData })
+      });
 
-        if (attendanceData.length === 0) {
-            showAlert("No student records found to submit!", "red");
-            return;
-        }
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Save Attendance';
 
-        submitBtn.disabled = true;
-        submitBtn.innerText = "Saving to Google Sheet...";
-
-        const payload = {
-            class_name: className,
-            date: attDate,
-            attendance_data: attendanceData
-        };
-
-        fetch('/save_attendance', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(payload)
-        })
-        .then(res => res.json())
-        .then(result => {
-            submitBtn.disabled = false;
-            submitBtn.innerText = "Submit Attendance";
-
-            if (result.status === "success") {
-                showAlert("✅ " + result.message, "green");
-                setTimeout(() => {
-                    document.getElementById('studentListContainer').innerHTML = `<p class="text-center text-gray-400 py-4">Select a class to mark attendance again.</p>`;
-                }, 1500);
-            } else {
-                showAlert("❌ Error: " + result.message, "red");
-            }
-        })
-        .catch(err => {
-            submitBtn.disabled = false;
-            submitBtn.innerText = "Submit Attendance";
-            showAlert("❌ Connection error while saving!", "red");
-        });
+      if (ok) {
+        window.showAppPopup(data.message || 'Attendance safaltapurvak save ho gayi!', 'success');
+        document.getElementById('studentListContainer').innerHTML = '<div class="rounded-2xl bg-slate-900/60 border border-slate-800/80 p-6 text-center text-sm text-slate-400">Dubara attendance lene ke liye class chunein.</div>';
+        updateSummaryCounts();
+      }
     }
-</script>
-
+  </script>
 </body>
 </html>
