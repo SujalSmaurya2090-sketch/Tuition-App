@@ -1,152 +1,231 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Fee Collection - AMPLE VISION ACADEMY</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Fee Collection • Ample Vision</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    * { -webkit-tap-highlight-color: transparent; }
+    body { font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+  </style>
 </head>
-<body class="bg-slate-100 min-h-screen p-4 md:p-6">
-    <div class="max-w-xl mx-auto bg-white rounded-2xl shadow-md p-6 border border-slate-200">
-        
-        <div class="flex justify-between items-center mb-6 border-b pb-3">
-            <h2 class="text-xl font-extrabold text-slate-800">💰 Fee Collection Entry</h2>
-            <a href="/" class="text-indigo-600 font-bold text-sm hover:underline">← Dashboard</a>
+<body class="min-h-screen bg-slate-950 text-slate-100 pb-12">
+
+  <!-- Reusable Popup Modal -->
+  <div id="appPopupBackdrop" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+    <div id="appPopupCard" class="w-full max-w-sm rounded-2xl bg-slate-900 border border-slate-800 shadow-2xl overflow-hidden transform transition-all scale-95 opacity-0 duration-200">
+      <div class="p-5">
+        <div class="flex items-start gap-3.5">
+          <div id="appPopupIcon" class="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 text-base font-bold"></div>
+          <div class="min-w-0 flex-1">
+            <h3 id="appPopupTitle" class="text-base font-semibold text-white"></h3>
+            <p id="appPopupMessage" class="mt-1 text-sm text-slate-300 leading-relaxed"></p>
+          </div>
+        </div>
+        <div class="mt-5 flex justify-end">
+          <button id="appPopupCloseBtn" type="button" class="px-5 py-2.5 rounded-xl text-sm font-medium text-white transition">
+            Theek Hai
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Header -->
+  <header class="sticky top-0 z-30 bg-slate-950/90 backdrop-blur border-b border-slate-800/80">
+    <div class="max-w-xl mx-auto px-4 py-3.5 flex items-center justify-between gap-3">
+      <div>
+        <p class="text-[11px] uppercase tracking-wider text-indigo-400 font-semibold">Ample Vision Academy</p>
+        <h1 class="text-base sm:text-lg font-bold text-white">Fee Collection</h1>
+      </div>
+      <a href="/" class="px-3.5 py-2 rounded-xl text-xs sm:text-sm font-medium bg-slate-900 hover:bg-slate-800 border border-slate-800 text-indigo-300 transition">
+        ← Home
+      </a>
+    </div>
+  </header>
+
+  <main class="max-w-xl mx-auto px-4 pt-5">
+    <section class="rounded-2xl bg-slate-900 border border-slate-800 p-5 sm:p-6">
+      <form id="feeForm" onsubmit="submitFee(event)" class="space-y-4">
+        <div>
+          <label class="block text-xs font-medium text-slate-400 mb-1">Collected By</label>
+          <input type="text" value="{{ user.user_email }}" readonly
+                 class="w-full h-11 rounded-xl bg-slate-950/70 border border-slate-800 px-3.5 text-sm text-slate-400 cursor-not-allowed" />
         </div>
 
-        <div id="alertBox" class="hidden mb-4 p-3 rounded-xl text-sm font-bold"></div>
+        <div>
+          <label for="classSelect" class="block text-xs font-medium text-slate-300 mb-1">Class / Batch</label>
+          <select id="classSelect" onchange="loadStudents()" required
+                  class="w-full h-11 rounded-xl bg-slate-950 border border-slate-800 focus:border-indigo-500 px-3.5 text-sm font-semibold text-white outline-none">
+            <option value="">-- Choose Class --</option>
+          </select>
+        </div>
 
-        <form id="feeForm" onsubmit="submitFee(event)" class="space-y-4">
-            
-            <!-- Collected By Info Field (Auto-filled from session) -->
-            <div>
-                <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Collected By (Logged-in Staff)</label>
-                <input type="text" value="{{ user.user_email }}" readonly 
-                       class="w-full bg-slate-100 border border-slate-300 rounded-xl p-3 font-semibold text-slate-600 text-sm cursor-not-allowed">
-            </div>
+        <div>
+          <label for="studentSelect" class="block text-xs font-medium text-slate-300 mb-1">Student</label>
+          <select id="studentSelect" required
+                  class="w-full h-11 rounded-xl bg-slate-950 border border-slate-800 focus:border-indigo-500 px-3.5 text-sm font-semibold text-white outline-none">
+            <option value="">-- Select Student --</option>
+          </select>
+        </div>
 
-            <!-- Select Class -->
-            <div>
-                <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Class / Batch</label>
-                <select id="classSelect" onchange="loadStudents()" required class="w-full border-2 border-slate-200 rounded-xl p-3 font-bold text-slate-800 text-sm focus:border-indigo-600 focus:outline-none">
-                    <option value="">-- Choose Class --</option>
-                </select>
-            </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+          <div>
+            <label for="amount" class="block text-xs font-medium text-slate-300 mb-1">Amount Paid (₹)</label>
+            <input id="amount" type="number" min="1" required placeholder="1500"
+                   class="w-full h-11 rounded-xl bg-slate-950 border border-slate-800 focus:border-indigo-500 px-3.5 text-sm text-white placeholder-slate-500 outline-none" />
+          </div>
+          <div>
+            <label for="forMonth" class="block text-xs font-medium text-slate-300 mb-1">For Month</label>
+            <input id="forMonth" type="text" required placeholder="November 2026"
+                   class="w-full h-11 rounded-xl bg-slate-950 border border-slate-800 focus:border-indigo-500 px-3.5 text-sm text-white placeholder-slate-500 outline-none" />
+          </div>
+        </div>
 
-            <!-- Select Student -->
-            <div>
-                <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Student</label>
-                <select id="studentSelect" required class="w-full border-2 border-slate-200 rounded-xl p-3 font-bold text-slate-800 text-sm focus:border-indigo-600 focus:outline-none">
-                    <option value="">-- Select Student --</option>
-                </select>
-            </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+          <div>
+            <label for="paymentMode" class="block text-xs font-medium text-slate-300 mb-1">Payment Mode</label>
+            <select id="paymentMode" required
+                    class="w-full h-11 rounded-xl bg-slate-950 border border-slate-800 focus:border-indigo-500 px-3.5 text-sm text-white outline-none">
+              <option value="Cash">Cash</option>
+              <option value="UPI">UPI</option>
+              <option value="Bank Transfer">Bank Transfer</option>
+              <option value="Cheque">Cheque</option>
+            </select>
+          </div>
+          <div>
+            <label for="paymentDate" class="block text-xs font-medium text-slate-300 mb-1">Payment Date</label>
+            <input id="paymentDate" type="date" required
+                   class="w-full h-11 rounded-xl bg-slate-950 border border-slate-800 focus:border-indigo-500 px-3.5 text-sm text-white outline-none" />
+          </div>
+        </div>
 
-            <!-- Amount & For Month -->
-            <div class="grid grid-cols-2 gap-3">
-                <div>
-                    <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Amount Paid (₹)</label>
-                    <input type="number" id="amount" required placeholder="1500" class="w-full border-2 border-slate-200 rounded-xl p-3 font-bold text-slate-800 text-sm focus:border-indigo-600 focus:outline-none">
-                </div>
-                <div>
-                    <label class="block text-xs font-bold text-slate-500 uppercase mb-1">For Month</label>
-                    <input type="text" id="forMonth" required placeholder="April 2026" class="w-full border-2 border-slate-200 rounded-xl p-3 font-bold text-slate-800 text-sm focus:border-indigo-600 focus:outline-none">
-                </div>
-            </div>
+        <button id="submitFeeBtn" type="submit"
+                class="w-full h-12 mt-2 rounded-xl bg-amber-600 hover:bg-amber-500 active:scale-[0.99] text-white font-semibold text-sm shadow-lg shadow-amber-600/20 transition">
+          Submit Fee Record
+        </button>
+      </form>
+    </section>
+  </main>
 
-            <!-- Payment Mode & Date -->
-            <div class="grid grid-cols-2 gap-3">
-                <div>
-                    <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Payment Mode</label>
-                    <select id="paymentMode" required class="w-full border-2 border-slate-200 rounded-xl p-3 font-bold text-slate-800 text-sm focus:border-indigo-600 focus:outline-none">
-                        <option value="Cash">Cash</option>
-                        <option value="UPI">UPI</option>
-                        <option value="Bank Transfer">Bank Transfer</option>
-                        <option value="Cheque">Cheque</option>
-                    </select>
-                </div>
-                <div>
-                    <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Payment Date</label>
-                    <input type="date" id="paymentDate" required class="w-full border-2 border-slate-200 rounded-xl p-3 font-bold text-slate-800 text-sm focus:border-indigo-600 focus:outline-none">
-                </div>
-            </div>
+  <script>
+    window.showAppPopup = function (message, type = 'info', title = '') {
+      const backdrop = document.getElementById('appPopupBackdrop');
+      const card = document.getElementById('appPopupCard');
+      const iconEl = document.getElementById('appPopupIcon');
+      const titleEl = document.getElementById('appPopupTitle');
+      const msgEl = document.getElementById('appPopupMessage');
+      const closeBtn = document.getElementById('appPopupCloseBtn');
+      if (!backdrop || !card) return;
 
-            <!-- Receipt No (Optional) -->
-            <div>
-                <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Receipt Number (Optional)</label>
-                <input type="text" id="receiptNo" placeholder="REC-101" class="w-full border-2 border-slate-200 rounded-xl p-3 font-bold text-slate-800 text-sm focus:border-indigo-600 focus:outline-none">
-            </div>
+      const styles = {
+        success: { defaultTitle: 'Safalta', iconBg: 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30', btnBg: 'bg-emerald-600 hover:bg-emerald-500', symbol: '✓' },
+        error: { defaultTitle: 'Dhyan Dein', iconBg: 'bg-rose-500/15 text-rose-400 border border-rose-500/30', btnBg: 'bg-rose-600 hover:bg-rose-500', symbol: '!' },
+        info: { defaultTitle: 'Soochna', iconBg: 'bg-indigo-500/15 text-indigo-400 border border-indigo-500/30', btnBg: 'bg-indigo-600 hover:bg-indigo-500', symbol: 'i' }
+      };
+      const cfg = styles[type] || styles.info;
+      iconEl.className = `w-10 h-10 rounded-xl flex items-center justify-center shrink-0 text-base font-bold ${cfg.iconBg}`;
+      iconEl.textContent = cfg.symbol;
+      titleEl.textContent = title || cfg.defaultTitle;
+      msgEl.textContent = String(message || 'Kripya dubara koshish karein.');
+      closeBtn.className = `px-5 py-2.5 rounded-xl text-sm font-medium text-white transition ${cfg.btnBg}`;
 
-            <button type="submit" class="w-full bg-amber-600 hover:bg-amber-700 text-white font-bold py-3.5 rounded-xl shadow-md text-base transition active:scale-95">
-                Submit Fee Record
-            </button>
-        </form>
-    </div>
+      backdrop.classList.remove('hidden');
+      backdrop.classList.add('flex');
+      requestAnimationFrame(() => { card.classList.remove('scale-95', 'opacity-0'); card.classList.add('scale-100', 'opacity-100'); });
 
-    <script>
-        let studentsData = [];
+      const hidePopup = () => {
+        card.classList.remove('scale-100', 'opacity-100');
+        card.classList.add('scale-95', 'opacity-0');
+        setTimeout(() => { backdrop.classList.add('hidden'); backdrop.classList.remove('flex'); }, 160);
+      };
+      closeBtn.onclick = hidePopup;
+      backdrop.onclick = (e) => { if (e.target === backdrop) hidePopup(); };
+    };
 
-        window.onload = async function() {
-            document.getElementById('paymentDate').valueAsDate = new Date();
-            const res = await fetch('/get_classes');
-            const data = await res.json();
-            const classSelect = document.getElementById('classSelect');
-            if(data.classes) {
-                data.classes.forEach(c => classSelect.innerHTML += `<option value="${c}">${c}</option>`);
-            }
-        };
-
-        async function loadStudents() {
-            const className = document.getElementById('classSelect').value;
-            const studentSelect = document.getElementById('studentSelect');
-            studentSelect.innerHTML = '<option value="">-- Select Student --</option>';
-
-            if(!className) return;
-
-            const res = await fetch(`/get_students/${className}`);
-            const data = await res.json();
-            studentsData = data.students || [];
-
-            studentsData.forEach(s => {
-                studentSelect.innerHTML += `<option value="${s.Student_ID}">${s.Full_Name} (ID: ${s.Student_ID})</option>`;
-            });
+    window.safeApiRequest = async function (url, options = {}) {
+      try {
+        const res = await fetch(url, { headers: { 'Content-Type': 'application/json', ...(options.headers || {}) }, ...options });
+        let data = {};
+        try { data = await res.json(); } catch (_) { data = { status: 'error', message: 'Server se jaankari sahi tarah nahi mil paayi.' }; }
+        if (!res.ok || data.status === 'error') {
+          const p = data.popup || {};
+          window.showAppPopup(p.message || data.message || 'Kuch samasya aa gayi hai.', 'error', p.title || 'Dhyan Dein');
+          return { ok: false, data };
         }
+        return { ok: true, data };
+      } catch (_) {
+        window.showAppPopup('Internet ya server connection mein dikkat hai. Kripya dubara try karein.', 'error', 'Connection Samasya');
+        return { ok: false, data: null };
+      }
+    };
 
-        async function submitFee(e) {
-            e.preventDefault();
-            const alertBox = document.getElementById('alertBox');
-            const studentId = document.getElementById('studentSelect').value;
-            const selectedStudent = studentsData.find(s => s.Student_ID === studentId);
+    let studentsData = [];
 
-            const payload = {
-                student_id: studentId,
-                student_name: selectedStudent ? selectedStudent.Full_Name : '',
-                class_name: document.getElementById('classSelect').value,
-                amount: document.getElementById('amount').value,
-                for_month: document.getElementById('forMonth').value,
-                payment_mode: document.getElementById('paymentMode').value,
-                payment_date: document.getElementById('paymentDate').value,
-                receipt_no: document.getElementById('receiptNo').value
-            };
+    window.onload = async function () {
+      document.getElementById('paymentDate').valueAsDate = new Date();
+      const { ok, data } = await window.safeApiRequest('/get_classes');
+      if (!ok) return;
+      const classSelect = document.getElementById('classSelect');
+      (data.classes || []).forEach(c => {
+        const opt = document.createElement('option');
+        opt.value = c;
+        opt.textContent = c;
+        classSelect.appendChild(opt);
+      });
+    };
 
-            const res = await fetch('/save_fee', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify(payload)
-            });
+    async function loadStudents() {
+      const className = document.getElementById('classSelect').value;
+      const studentSelect = document.getElementById('studentSelect');
+      studentSelect.innerHTML = '<option value="">-- Select Student --</option>';
+      if (!className) return;
 
-            const result = await res.json();
-            alertBox.classList.remove('hidden');
+      const { ok, data } = await window.safeApiRequest(`/get_students/${encodeURIComponent(className)}`);
+      if (!ok) return;
 
-            if(res.ok && result.status === 'success') {
-                alertBox.className = "mb-4 p-3 rounded-xl text-sm font-bold bg-green-100 text-green-700";
-                alertBox.innerText = result.message;
-                document.getElementById('feeForm').reset();
-                document.getElementById('paymentDate').valueAsDate = new Date();
-            } else {
-                alertBox.className = "mb-4 p-3 rounded-xl text-sm font-bold bg-rose-100 text-rose-700";
-                alertBox.innerText = result.message;
-            }
-        }
-    </script>
+      studentsData = data.students || [];
+      studentsData.forEach(s => {
+        const opt = document.createElement('option');
+        opt.value = s.Student_ID;
+        opt.textContent = `${s.Full_Name} (ID: ${s.Student_ID})`;
+        studentSelect.appendChild(opt);
+      });
+    }
+
+    async function submitFee(e) {
+      e.preventDefault();
+      const studentId = document.getElementById('studentSelect').value;
+      const selectedStudent = studentsData.find(s => s.Student_ID === studentId);
+      const btn = document.getElementById('submitFeeBtn');
+
+      btn.disabled = true;
+      btn.textContent = 'Saving...';
+
+      const { ok, data } = await window.safeApiRequest('/save_fee', {
+        method: 'POST',
+        body: JSON.stringify({
+          student_id: studentId,
+          student_name: selectedStudent ? selectedStudent.Full_Name : '',
+          class_name: document.getElementById('classSelect').value,
+          amount: document.getElementById('amount').value,
+          for_month: document.getElementById('forMonth').value.trim(),
+          payment_mode: document.getElementById('paymentMode').value,
+          payment_date: document.getElementById('paymentDate').value
+        })
+      });
+
+      btn.disabled = false;
+      btn.textContent = 'Submit Fee Record';
+
+      if (ok) {
+        window.showAppPopup(data.message || 'Fee entry safaltapurvak save ho gayi!', 'success');
+        document.getElementById('feeForm').reset();
+        document.getElementById('paymentDate').valueAsDate = new Date();
+        document.getElementById('studentSelect').innerHTML = '<option value="">-- Select Student --</option>';
+      }
+    }
+  </script>
 </body>
 </html>
